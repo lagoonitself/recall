@@ -11,7 +11,7 @@ import {
   recordedSseFixture,
 } from './index.js';
 import { loadConfig } from '../../lib/config.js';
-import { PendingProvider } from './pending.js';
+import { GeminiProvider } from './gemini.js';
 import { OpenAICompatibleProvider } from './openai.js';
 import type { FakeScript } from './index.js';
 
@@ -100,9 +100,9 @@ describe('fake provider and factory', () => {
   });
   it('selects the describe provider independently', () => {
     expect(getDescribeProvider()).toBeInstanceOf(FakeProvider);
-    expect(getDescribeProvider({ LLM_PROVIDER: 'fake', DESCRIBE_PROVIDER: 'gemini' })).toBeInstanceOf(
-      PendingProvider,
-    );
+    expect(
+      getDescribeProvider({ LLM_PROVIDER: 'fake', DESCRIBE_PROVIDER: 'gemini', GEMINI_API_KEY: 'key' }),
+    ).toBeInstanceOf(GeminiProvider);
     expect(getProvider({ LLM_PROVIDER: 'openrouter', OPENROUTER_API_KEY: 'key' })).toBeInstanceOf(
       OpenAICompatibleProvider,
     );
