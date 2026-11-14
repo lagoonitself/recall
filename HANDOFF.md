@@ -2,7 +2,7 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by Claude (P1 review)
+Last updated: 2026-11-14 by GPT-6.1 Terra (P6 implementation)
 
 ---
 
@@ -22,7 +22,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 | P3 Embedding client + spike | done | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D21 |
 | P4 Ingestion worker | not started | — | — | |
 | P5 LLM provider | in progress | GPT-6.1 Terra | part/p5-llm-provider | Fake + interface first; then real adapters for gemini, openrouter, opencode (D20) |
-| P6 Retrieval | not started | — | — | |
+| P6 Retrieval | in review | GPT-6.1 Terra | part/p6-retrieval | Hybrid search, audio splitting and test-branch integration tests |
 | P7 Agent + chat API | not started | — | — | |
 | P8 FE library | in progress | GPT-6.1 Terra | part/p8-fe-library | Includes Google sign-in button (D19) |
 | P9 FE chat | not started | — | — | |
@@ -38,10 +38,12 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 ## Next steps
 
-1. Lanes running: P8; P5 in review. P2 and P6 start after P1 merges.
-2. Then P2 after P1, P6 after P3, P9 after P8, P4 when P2+P3+P5 are in `main`.
+1. Claude reviews P6; P7 can consume `searchLibrary` after merge.
+2. Continue P2 and the other parallel lanes; P4 needs P2, P3 and P5.
 
 ## Known problems
+
+P6 needs ffmpeg for audio attachments and pgvector 0.8+ for iterative scans. The small test fixture favored the scope index; HNSW use was confirmed with planner overrides, not production-size benchmarks.
 
 Docker Desktop Linux engine was unavailable during P0 verification. The install reports three development dependency vulnerabilities; `npm audit --omit=dev` reports zero.
 
@@ -52,6 +54,12 @@ P3 did not establish actual maximum fully processed duration/pages: over-limit r
 ## Session log
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
+
+### 2026-11-14 - GPT-6.1 Terra - P6 implementation
+- Added tenant-scoped vector and keyword retrieval, reciprocal rank fusion, filters, attachment embeddings and ffmpeg audio splitting. No shared contract or migration changes.
+- Test fixtures use only TEST_DATABASE_URL and directly insert users. Integration tests and HNSW EXPLAIN ANALYZE pass; the HNSW plan uses planner overrides on a small fixture.
+- P7 must translate internal search results and thumbnail keys into the existing Source wire shape; storage keys must never reach the client. No live embedding calls were made.
+- Outside P6 scope: this required handoff update. Claude review is next.
 
 ### 2026-11-14 · GPT-6.1 Terra · P1 implementation
 - Implemented database, auth (including Google), collections, and integration tests; main Neon migration applied after tests passed on the test branch.
