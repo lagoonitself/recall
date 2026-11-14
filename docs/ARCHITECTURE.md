@@ -123,9 +123,9 @@ The browser uploads straight to R2 with a short-lived signed URL, so large files
 
 ### 4.2 Splitting rules
 
-`gemini-embedding-2` takes one file per call, with limits of 8,192 text tokens, 6 PDF pages and 80 seconds of video with audio. The audio limit is measured in part P3 (sources disagree), so the audio piece length is a setting (`AUDIO_PIECE_SEC`, default 150 until measured). Every file is split so each piece fits, and each piece keeps its location so citations can point to it.
+`gemini-embedding-2` takes one file per call. Google's documentation lists 8,192 input tokens, 6 PDF pages, 180 seconds of audio and 120 seconds of video; video audio tracks are not processed. P3's over-limit requests returned vectors, but did not establish whether content was truncated. Keep `AUDIO_PIECE_SEC` at the conservative default of 150 and retain the product's 80-second video cap. Every file is split so each piece fits, and each piece keeps its location so citations can point to it. See D21 for observations and the need to process video audio separately.
 
-**Video is capped at 80 seconds**, the embedding limit, so a video is never split. The browser reads the duration before uploading and refuses longer videos, and the server checks again with `ffprobe` and rejects anything over 80 s. The same cap applies to videos attached to chat messages. **Audio has no length cap.** Long audio is split into `AUDIO_PIECE_SEC` pieces.
+**Video is capped at 80 seconds** as a conservative product limit, so a video is never split. The browser reads the duration before uploading and refuses longer videos, and the server checks again with `ffprobe` and rejects anything over 80 s. The same cap applies to videos attached to chat messages. **Audio has no length cap.** Long audio is split into `AUDIO_PIECE_SEC` pieces.
 
 | Input | Accepted formats | Piece | Normalised to | Location kept |
 |---|---|---|---|---|
@@ -628,7 +628,7 @@ All in `server/.env` (git-ignored) locally and in Render's env settings in produ
 | `AGENT_MODEL`, `DESCRIBE_MODEL` | TBD | Model ids |
 | `LLM_CONCURRENCY`, `DESCRIBE_BATCH` | `2`, `4` | Throttle and batching |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | | Storage |
-| `AUDIO_PIECE_SEC` | `150` | Set from the P3 measurement |
+| `AUDIO_PIECE_SEC` | `150` | Below the documented 180-second limit; P3 did not establish a hard boundary |
 | `WORKER_CONCURRENCY` | `1` | Jobs at once |
 | `MAX_FILE_MB`, `USER_QUOTA_MB`, `UPLOADS_PER_DAY`, `CHAT_PER_MIN` | `50`, `500`, `100`, `6` | Per-user limits |
 
