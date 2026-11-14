@@ -2,7 +2,7 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by Claude (P10 prep review)
+Last updated: 2026-11-14 by Codex (P12 README)
 
 ---
 
@@ -32,21 +32,15 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 ## Waiting on the user
 
-- [ ] Create a Neon project/branch and copy the **pooled connection string** (with `-pooler` in hostname and `?sslmode=require`).
-- [ ] Create Cloudflare R2 bucket `recall-files` and configure CORS policy allowing PUT/GET from Vercel domain and `http://localhost:5173` (see [docs/DEPLOY.md](docs/DEPLOY.md) §2).
-- [ ] Deploy backend to Render using `render.yaml` (free web service, Docker runtime), fill in environment variables from [docs/DEPLOY.md](docs/DEPLOY.md) §3.
-- [ ] Deploy frontend to Vercel (Root Directory: `client`, Build Command: `npm run build`, Output Directory: `dist`), set `VITE_API_URL` to Render backend URL (see [docs/DEPLOY.md](docs/DEPLOY.md) §4).
-- [ ] Configure Google OAuth 2.0 Web Client authorized JavaScript origins and redirect URIs for `http://localhost:5173` and Vercel domain; set `GOOGLE_CLIENT_ID` in Render (see [docs/DEPLOY.md](docs/DEPLOY.md) §5).
-- [ ] Deploy keepalive worker via `cf deploy` in `keepalive/` directory with `TARGET_URL` pointing to Render service (see [docs/DEPLOY.md](docs/DEPLOY.md) §6).
-- [ ] Execute smoke tests from [docs/DEPLOY.md](docs/DEPLOY.md) §7.
-- [ ] Check Gemini key limits for `gemini-embedding-2` in AI Studio.
+- [ ] Complete real Google sign-in during signed-in production browser QA.
+- [ ] Confirm embedding account quotas before preparing a larger demo collection.
 
 ## Next steps
 
-1. Merge #14 (chat state fixes from the first end-to-end run) after its review.
-2. P10 live deploy: the user creates the accounts and sets env on Render/Vercel/Cloudflare following `docs/DEPLOY.md`; then smoke test on the live URL.
-3. Not yet checked in a real browser: voice-note and photo questions, the real Google sign-in popup.
-4. Then P11 review/QA, P12 README + demo.
+1. Finish independent review of the P12 README and its documentation PR.
+2. P11: verify signed-in production uploads, chat, full-document previews, mobile and dark mode; the voice recorder was removed in the redesign.
+3. P10: verify deployed keep-alive cron, cold-start behavior, and maximum-length video memory use.
+4. P12: prepare demo-safe media, write the demo script, record and link the video after QA. No demo media or recording was created by this README task.
 
 ## Known problems
 
@@ -69,6 +63,12 @@ P7: the provider is not interruptible mid-await, so a disconnect is noticed at t
 ## Session log
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
+
+### 2026-11-14 ? Codex ? P12 GitHub README
+- Added a detailed README covering product behavior, architecture diagram, ingestion, hybrid retrieval, LLM tools, citations, mock/full local setup, configuration, deployment, limits, security and credits. Gemini Embedding 2 is the only named model; LLM identity is omitted per user request (D26).
+- Cross-checked code rather than repeating stale planning claims: Google-only sign-in, uploaded audio without a recorder, clip/segment citation precision, video-audio embedding limitation, inline embedding size, and blank environment default handling.
+- Outside P12's file scope: required HANDOFF update and DECISIONS entry only. No source, shared API, schema, cloud configuration or credentials changed. Existing root-worktree .gitignore and HANDOFF edits were left untouched.
+- Validation: typecheck, lint, format:check and test passed on this branch; README relative links resolve. Independent review: pending. Frontend HTTP 200 and API health HTTP 204 observed; no claim of a new signed-in end-to-end check.
 
 ### 2026-11-14 · Claude (lead) + 4× Gemini 3.8 Flash High · Frontend redesign (merged on branch, not yet in main)
 - Branch `part/fe-redesign` (foundation, commit 12c55b9): `style.css` split into per-area files under `client/src/styles/`; new `tokens.css` (light + dark) and `base.css` primitives (`.btn`, `.input`, `.badge`, `.skeleton`…); Geist / Geist Mono / Newsreader fonts; `lucide-react`; `FilePreview` extracted from the Collection page; spec + file-ownership table in `client/src/styles/README.md`.
