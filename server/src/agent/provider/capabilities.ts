@@ -1,6 +1,6 @@
 import type { ModelCapabilities } from './types.js';
 const models: Record<string, ModelCapabilities> = Object.create(null) as Record<string, ModelCapabilities>;
-models['gemini-2.5-flash-lite'] = {
+models['gemini-3.5-flash-lite'] = {
   input: { image: true, pdf: true, audio: true, video: true },
   tools: true,
   reasoning: true,
