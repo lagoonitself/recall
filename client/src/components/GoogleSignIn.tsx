@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { useNavigate } from 'react-router-dom';
+
 declare global {
   interface Window {
     google?: {
@@ -17,26 +18,35 @@ declare global {
     };
   }
 }
-export function GoogleSignIn() {
+
+export function GoogleSignIn({ mocking }: { mocking: boolean }) {
   const [clientId, setClientId] = useState<string | null>(null);
+  const [configState, setConfigState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   const target = useRef<HTMLDivElement>(null);
   const { signIn } = useAuth();
   const navigate = useNavigate();
+
   useEffect(() => {
     let active = true;
     api
       .config()
       .then((config) => {
-        if (active) setClientId(config.googleClientId);
+        if (active) {
+          setClientId(config.googleClientId);
+          setConfigState('ready');
+        }
       })
       .catch(() => {
-        if (active) setError('Google sign-in is unavailable right now.');
+        if (active) setConfigState('error');
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [attempt]);
+
   useEffect(() => {
     if (!clientId) return;
     let active = true;
@@ -62,6 +72,9 @@ export function GoogleSignIn() {
         width: 320,
       });
     };
+    const failed = () => {
+      if (active) setError('Could not load Google sign-in. Please refresh and try again.');
+    };
     let script = document.querySelector<HTMLScriptElement>(
       'script[src="https://accounts.google.com/gsi/client"]',
     );
@@ -72,18 +85,67 @@ export function GoogleSignIn() {
       document.head.appendChild(script);
     }
     script.addEventListener('load', render);
+    script.addEventListener('error', failed);
     if (window.google) render();
     return () => {
       active = false;
       script?.removeEventListener('load', render);
+      script?.removeEventListener('error', failed);
     };
   }, [clientId, navigate, signIn]);
+
+  async function mockSignIn() {
+    setError('');
+    setBusy(true);
+    try {
+      const response = await api.google('mock-google-credential');
+      signIn(response);
+      navigate('/');
+    } catch {
+      setError('Mock sign-in failed. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <>
-      {clientId && (
+    <div className="sign-in-options">
+      {configState === 'loading' && (
+        <p className="muted" role="status">
+          Loading sign-in…
+        </p>
+      )}
+      {configState === 'error' && (
+        <div role="alert">
+          <p className="error">Could not load sign-in settings.</p>
+          <button
+            className="button secondary"
+            onClick={() => {
+              setConfigState('loading');
+              setAttempt((value) => value + 1);
+            }}
+          >
+            Try again
+          </button>
+        </div>
+      )}
+      {configState === 'ready' && !clientId && (
+        <p className="muted" role="status">
+          Google sign-in is not configured.
+        </p>
+      )}
+      {configState === 'ready' && clientId && (
         <>
-          <div className="divider">or continue with</div>
           <div ref={target} className="google-button" />
+          {import.meta.env.DEV && mocking && (
+            <button
+              className="button secondary mock-sign-in"
+              disabled={busy}
+              onClick={() => void mockSignIn()}
+            >
+              Continue (mock)
+            </button>
+          )}
         </>
       )}
       {error && (
@@ -91,6 +153,6 @@ export function GoogleSignIn() {
           {error}
         </p>
       )}
-    </>
+    </div>
   );
 }

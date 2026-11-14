@@ -9,8 +9,6 @@ import {
   FileResponseSchema,
   UploadUrlResponseSchema,
   ErrorResponseSchema,
-  LoginRequestSchema,
-  RegisterRequestSchema,
   GoogleLoginRequestSchema,
   CreateCollectionRequestSchema,
   UpdateCollectionRequestSchema,
@@ -40,12 +38,7 @@ async function request<T>(path: string, schema: z.ZodType<T>, options: RequestIn
   if (token) headers.set('Authorization', `Bearer ${token}`);
   const response = await fetch(`${base}/api${path}`, { ...options, headers });
   if (!response.ok) {
-    if (
-      response.status === 401 &&
-      path !== '/auth/login' &&
-      path !== '/auth/register' &&
-      path !== '/auth/google'
-    ) {
+    if (response.status === 401) {
       setToken(null);
       window.dispatchEvent(new Event('recall:unauthorized'));
     }
@@ -60,16 +53,6 @@ async function request<T>(path: string, schema: z.ZodType<T>, options: RequestIn
 const body = (value: unknown) => JSON.stringify(value);
 export const api = {
   config: () => request('/auth/config', AuthConfigResponseSchema),
-  login: (value: z.input<typeof LoginRequestSchema>) =>
-    request('/auth/login', AuthResponseSchema, {
-      method: 'POST',
-      body: body(LoginRequestSchema.parse(value)),
-    }),
-  register: (value: z.input<typeof RegisterRequestSchema>) =>
-    request('/auth/register', AuthResponseSchema, {
-      method: 'POST',
-      body: body(RegisterRequestSchema.parse(value)),
-    }),
   google: (credential: string) =>
     request('/auth/google', AuthResponseSchema, {
       method: 'POST',

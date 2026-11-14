@@ -179,41 +179,12 @@ label input {
   font-size: 2.6rem;
   margin-bottom: 8px;
 }
-.auth-card form {
-  display: grid;
-  gap: 18px;
+.sign-in-options {
   margin-top: 32px;
 }
-.auth-card form small {
-  margin-top: -12px;
-}
-.optional {
-  font-weight: 400;
-  color: #69756b;
-}
-.auth-switch {
-  margin-top: 30px;
-  color: #667169;
-  font-size: 0.88rem;
-}
-.auth-switch a {
-  color: #334c3e;
-  font-weight: 700;
-}
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: #788278;
-  font-size: 0.75rem;
-  margin: 24px 0;
-}
-.divider:before,
-.divider:after {
-  content: '';
-  height: 1px;
-  background: #e0e4dd;
-  flex: 1;
+.mock-sign-in {
+  display: block;
+  margin-top: 16px;
 }
 .topbar {
   height: 76px;

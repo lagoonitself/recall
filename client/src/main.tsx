@@ -13,17 +13,18 @@ function Protected() {
   return user ? <AppShell /> : <Navigate to="/login" replace />;
 }
 async function start() {
+  let mocking = false;
   if (import.meta.env.DEV && !import.meta.env.VITE_API_URL) {
     const { worker } = await import('./mocks/browser');
     await worker.start({ onUnhandledRequest: 'bypass' });
+    mocking = true;
   }
   createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            <Route path="/login" element={<AuthPage />} />
-            <Route path="/register" element={<AuthPage register />} />
+            <Route path="/login" element={<AuthPage mocking={mocking} />} />
             <Route element={<Protected />}>
               <Route path="/" element={<Collections />} />
               <Route path="/collections/:id" element={<CollectionPage />} />

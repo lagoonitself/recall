@@ -2,8 +2,6 @@ import { http, HttpResponse } from 'msw';
 import {
   CreateCollectionRequestSchema,
   UpdateCollectionRequestSchema,
-  LoginRequestSchema,
-  RegisterRequestSchema,
   GoogleLoginRequestSchema,
   UploadUrlRequestSchema,
   type Collection,
@@ -23,20 +21,11 @@ const reply = () => HttpResponse.json({ token: 'mock-token', user });
 const fail = () =>
   HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Not found.' } }, { status: 404 });
 export const handlers = [
-  http.get('*/api/auth/config', () => HttpResponse.json({ googleClientId: null })),
+  http.get('*/api/auth/config', () =>
+    HttpResponse.json({ googleClientId: 'mock-client-id.apps.googleusercontent.com' }),
+  ),
   http.post('*/api/auth/google', async ({ request }) => {
     GoogleLoginRequestSchema.parse(await request.json());
-    return reply();
-  }),
-  http.post('*/api/auth/login', async ({ request }) => {
-    const data = LoginRequestSchema.parse(await request.json());
-    user.email = data.email;
-    return reply();
-  }),
-  http.post('*/api/auth/register', async ({ request }) => {
-    const data = RegisterRequestSchema.parse(await request.json());
-    user.email = data.email;
-    user.name = data.name || null;
     return reply();
   }),
   http.get('*/api/auth/me', () => HttpResponse.json({ user })),
