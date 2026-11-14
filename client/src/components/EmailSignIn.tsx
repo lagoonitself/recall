@@ -49,18 +49,26 @@ export function EmailSignIn({ register }: { register: boolean }) {
         <span className="field-label">Email</span>
         <input className="input" name="email" type="email" autoComplete="email" required />
       </label>
-      <label className="field">
-        <span className="field-label">Password</span>
+      <div className="field">
+        <label className="field-label" htmlFor="sign-in-password">
+          Password
+        </label>
         <input
+          id="sign-in-password"
           className="input"
           name="password"
           type="password"
           autoComplete={register ? 'new-password' : 'current-password'}
           minLength={register ? 8 : undefined}
+          aria-describedby={register ? 'sign-in-password-hint' : undefined}
           required
         />
-        {register && <span className="field-hint">At least 8 characters.</span>}
-      </label>
+        {register && (
+          <span id="sign-in-password-hint" className="field-hint">
+            At least 8 characters.
+          </span>
+        )}
+      </div>
       {error && (
         <p className="field-error" role="alert">
           {error}
