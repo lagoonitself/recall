@@ -1,10 +1,7 @@
 import { Router } from 'express';
-import bcrypt from 'bcrypt';
-import { createHash } from 'node:crypto';
 import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 import type pg from 'pg';
-import { z } from 'zod';
-import { GoogleLoginRequestSchema, LoginRequestSchema, RegisterRequestSchema } from '@app/shared';
+import { GoogleLoginRequestSchema } from '@app/shared';
 import { validateBody } from '../lib/validation.js';
 import { HttpError } from '../lib/errors.js';
 import { requireAuth, signToken } from '../lib/auth.js';
@@ -19,7 +16,6 @@ type UserRow = {
   name: string | null;
   avatar_url: string | null;
   created_at: Date;
-  password_hash: string | null;
 };
 const publicUser = (row: UserRow) => ({
   id: row.id,
@@ -28,11 +24,6 @@ const publicUser = (row: UserRow) => ({
   avatarUrl: row.avatar_url,
   createdAt: row.created_at.toISOString(),
 });
-const digest = (password: string) => createHash('sha256').update(password).digest('base64');
-const DUMMY_HASH = bcrypt.hashSync('recall-timing-equaliser', 12);
-const invalid = () => new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
-const registration = RegisterRequestSchema.extend({ email: z.string().trim().email() });
-const login = LoginRequestSchema.extend({ email: z.string().trim().email() });
 const duplicate = (error: unknown) =>
   typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
 
@@ -46,29 +37,6 @@ export function authRouter(
   const limiter = rateLimit({ limit: 10, windowMs: 60_000 });
   const respond = (row: UserRow) => ({ token: signToken(row.id, secret), user: publicUser(row) });
   router.get('/config', (_req, res) => res.json({ googleClientId: googleClientId || null }));
-  router.post('/register', limiter, validateBody(registration), async (req, res) => {
-    const { email, password, name } = registration.parse(req.body);
-    const hash = await bcrypt.hash(digest(password), 12);
-    try {
-      const result = await pool().query(
-        'INSERT INTO users(email, password_hash, name) VALUES ($1,$2,$3) RETURNING *',
-        [email.trim().toLowerCase(), hash, name ?? null],
-      );
-      res.status(201).json(respond(result.rows[0]));
-    } catch (error) {
-      if (duplicate(error)) throw new HttpError(409, 'CONFLICT', 'Email already registered');
-      throw error;
-    }
-  });
-  router.post('/login', limiter, validateBody(login), async (req, res) => {
-    const { email, password } = login.parse(req.body);
-    const result = await pool().query('SELECT * FROM users WHERE email = $1', [email.trim().toLowerCase()]);
-    const user: UserRow | undefined = result.rows[0];
-    // Always run bcrypt so a missing account takes as long as a wrong password (no email enumeration by timing).
-    const matches = await bcrypt.compare(digest(password), user?.password_hash ?? DUMMY_HASH);
-    if (!user?.password_hash || !matches) throw invalid();
-    res.json(respond(user));
-  });
   router.post('/google', limiter, validateBody(GoogleLoginRequestSchema), async (req, res) => {
     if (!googleClientId) throw new HttpError(404, 'NOT_FOUND', 'Google sign-in is disabled');
     let payload: TokenPayload | undefined;
@@ -80,9 +48,8 @@ export function authRouter(
     if (!payload?.sub || !payload.email || payload.email_verified !== true)
       throw new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid Google credential');
     const email = payload.email.trim().toLowerCase();
-    // Linking to an existing email account drops its password: password sign-up never proved ownership of
-    // the address, so a password set by whoever registered first must not survive Google's proof (pre-account
-    // takeover). The owner keeps access through Google.
+    // An existing row with the same verified email is linked to this Google account. Any legacy password from
+    // before D22 is dropped so it can't outlive Google's proof of ownership.
     const existing = await pool().query('SELECT * FROM users WHERE google_sub = $1', [payload.sub]);
     if (existing.rowCount) return res.json(respond(existing.rows[0]));
     try {

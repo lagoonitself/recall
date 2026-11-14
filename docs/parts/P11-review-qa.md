@@ -13,7 +13,7 @@ Every part gets an independent review before merge, and the finished app passes 
   - [ ] every SQL query scoped by `user_id`; no cross-user access on any route (test with two accounts);
   - [ ] signed URLs only after ownership check; 10 min expiry;
   - [ ] no secrets in `client/` bundle (`grep` the built `dist/`), none committed (scan git history);
-  - [ ] JWT secret strength, expiry, bcrypt cost;
+  - [ ] JWT secret strength and expiry; Google ID-token checks (aud, email_verified);
   - [ ] upload checks: MIME, size, HEAD on complete, ffprobe on video;
   - [ ] subprocess calls use argument arrays;
   - [ ] prompt-injection file can't make the agent leak other files or skip citations;
