@@ -2,7 +2,7 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by Claude (P5b review)
+Last updated: 2026-11-14 by Claude (P6 review)
 
 ---
 
@@ -22,7 +22,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 | P3 Embedding client + spike | done | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D21 |
 | P4 Ingestion worker | not started | — | — | |
 | P5 LLM provider | done | GPT-6.1 Terra / review Claude | part/p5b-llm-adapters | gemini, openrouter (free models), opencode (needs OpenCode Go) — D24 |
-| P6 Retrieval | in progress | GPT-6.1 Terra | part/p6-retrieval | |
+| P6 Retrieval | done | GPT-6.1 Terra / review Claude | part/p6-retrieval | Hybrid vector + full-text with RRF; HNSW iterative scan |
 | P7 Agent + chat API | not started | — | — | |
 | P8 FE library | in progress | GPT-6.1 Terra | part/p8-fe-library | Includes Google sign-in button (D19) |
 | P9 FE chat | not started | — | — | |
@@ -38,10 +38,12 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 ## Next steps
 
-1. Running: P2, P6, P8, P5 real adapters. Claude reviews each PR.
+1. Running: P8, P5 real adapters. Claude reviews P6 and the other PRs.
 2. Next: P9 after P8, P4 when P2 is in `main`, P7 when P2 + P6 are in `main`.
 
 ## Known problems
+
+P6 needs ffmpeg for audio attachments and pgvector 0.8+ for iterative scans. The small test fixture favored the scope index; HNSW use was confirmed with planner overrides, not production-size benchmarks.
 
 P2 signed PUT URLs remain usable until expiry: a client can overwrite the verified original after completion or recreate it after deletion. The existing collection DELETE cascades file rows without deleting R2 objects. Resolve both lifecycle issues before production/merge; P2's file DELETE alone cannot prevent them. Integration tests use the test database and real R2, cleaning their test prefixes.
 
@@ -56,6 +58,13 @@ P3 did not establish actual maximum fully processed duration/pages: over-limit r
 ## Session log
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
+
+### 2026-11-14 - GPT-6.1 Terra - P6 implementation
+- Added tenant-scoped vector and keyword retrieval, reciprocal rank fusion, filters, attachment embeddings and ffmpeg audio splitting. No shared contract or migration changes.
+- Test fixtures use only TEST_DATABASE_URL and directly insert users. Integration tests and HNSW EXPLAIN ANALYZE pass; the HNSW plan uses planner overrides on a small fixture.
+- After merging current main, full npm test twice hit existing P1 integration timeouts during concurrent remote tests; P6 and P2 tests passed. Other requested checks passed.
+- P7 must translate internal search results and thumbnail keys into the existing Source wire shape; storage keys must never reach the client. No live embedding calls were made.
+- Outside P6 scope: this required handoff update. Claude review is next.
 
 ### 2026-11-14 · GPT-6.1 Terra · P5 adapters
 - Implemented configuration, provider factories, Gemini and OpenAI-compatible adapters, model rows, mocked tests and opt-in live contracts. Config, env example, decisions and this handoff are outside the narrow P5 provider scope; shared contracts are unchanged.
