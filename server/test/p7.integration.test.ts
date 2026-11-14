@@ -238,6 +238,10 @@ describe.skipIf(!ready)('P7 chat API on test database and R2', () => {
     for (let i = 0; i < 4; i++) many.append('files', new Blob(['x'], { type: 'image/png' }), `${i}.png`);
     expect((await send(id, many)).status).toBe(400);
     expect((await send(id, new FormData())).status).toBe(400);
+    const big = new FormData();
+    for (let i = 0; i < 2; i++)
+      big.append('files', new Blob([new Uint8Array(11 * 1024 * 1024)], { type: 'image/png' }), `${i}.png`);
+    expect((await send(id, big)).status).toBe(413);
 
     const dir = mkdtempSync(join(tmpdir(), 'p7-'));
     try {

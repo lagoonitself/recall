@@ -1,16 +1,21 @@
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 export function AppShell() {
   const { user, signOut } = useAuth();
+  const location = useLocation();
+  const isChat = location.pathname.startsWith('/chat');
   return (
     <>
       <header className="topbar">
         <Link className="brand" to="/">
           <span className="brand-mark">r.</span> recall
         </Link>
-        <nav aria-label="Main navigation">
-          <Link className="nav-current" to="/">
+        <nav aria-label="Main navigation" className="main-nav">
+          <Link className={!isChat ? 'nav-current' : 'nav-link'} to="/">
             Library
+          </Link>
+          <Link className={isChat ? 'nav-current' : 'nav-link'} to="/chat">
+            Chat
           </Link>
         </nav>
         <details className="account">

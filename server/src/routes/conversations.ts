@@ -103,7 +103,14 @@ function uploads(): RequestHandler {
     storage: multer.memoryStorage(),
     limits: { files: MAX_ATTACHMENTS, fileSize: MAX_TOTAL_BYTES, fields: 4, fieldSize: 64 * 1024 },
   }).array('files', MAX_ATTACHMENTS);
-  return (req, res, next) =>
+  return (req, res, next) => {
+    // Multer's fileSize is per file and memory storage buffers everything: cap the whole body up front so
+    // three 20 MB files can't sit in RAM on a 512 MB instance. Browsers always send Content-Length for FormData.
+    const length = Number(req.get('content-length'));
+    if (!req.get('content-length') || !Number.isFinite(length))
+      return next(new HttpError(411, 'LENGTH_REQUIRED', 'Content-Length is required'));
+    if (length > MAX_TOTAL_BYTES + 256 * 1024)
+      return next(new HttpError(413, 'PAYLOAD_TOO_LARGE', 'Attachments may total at most 20 MB'));
     upload(req, res, (error: unknown) => {
       if (!error) return next();
       if (error instanceof multer.MulterError) {
@@ -115,6 +122,7 @@ function uploads(): RequestHandler {
       }
       next(error);
     });
+  };
 }
 
 export function conversationsRouter(
@@ -373,8 +381,8 @@ function toAgentMessage(row: MessageRow): AgentMessage {
   if (row.role === 'assistant')
     return {
       role: 'assistant',
+      // providerState is only replayed inside one turn's tool loop; earlier turns are plain (filtered) text.
       content: row.content || '(no answer)',
-      ...(row.provider_state ? { providerState: row.provider_state } : {}),
     };
   const note = row.attachments.length
     ? `\n[Earlier attachments, no longer searchable: ${row.attachments.map((a) => `${a.modality} "${a.name}"`).join(', ')}]`
@@ -417,7 +425,9 @@ async function persist(pool: pg.Pool, conversationId: string, id: string, result
     modality: s.modality,
     location: s.location,
   }));
-  const content = result.answer || (result.status === 'aborted' ? '_(Stopped.)_' : '');
+  const content =
+    result.answer ||
+    (result.status === 'aborted' ? '_(Stopped.)_' : '_(The answer could not be generated.)_');
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

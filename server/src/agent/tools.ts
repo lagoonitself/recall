@@ -98,6 +98,21 @@ async function readAll(stream: Readable, maxBytes = 25 * 1024 * 1024): Promise<U
   return new Uint8Array(Buffer.concat(chunks));
 }
 
+/** Untrusted text goes inside <file-content>; a closing tag inside it must not end the block. */
+const fence = (text: string) =>
+  '<file-content>\n' +
+  text.replace(/<\/?file-content>/gi, (tag) => tag.replace('<', '&lt;')) +
+  '\n</file-content>';
+/** Reads a piece, or returns undefined when it is missing or too large (the caller falls back). */
+async function tryRead(storage: ToolDeps['storage'], key: string, maxBytes?: number) {
+  try {
+    return await readAll(await storage.getStream(key), maxBytes);
+  } catch (error) {
+    console.warn('open_sources: could not read piece', error instanceof Error ? error.message : error);
+    return undefined;
+  }
+}
+
 const clip = (text: string | null | undefined, max: number) =>
   !text ? '' : text.length > max ? `${text.slice(0, max)}…` : text;
 
@@ -238,39 +253,33 @@ export class TurnTools {
         .filter(Boolean)
         .join('\n');
       if (source.modality === 'text') {
-        const text = Buffer.from(await readAll(await this.deps.storage.getStream(row.r2_key), 512 * 1024))
-          .toString('utf8')
-          .slice(0, 12_000);
-        media.push({ type: 'text', text: `${header}\n<file-content>\n${text}\n</file-content>` });
+        const bytes = await tryRead(this.deps.storage, row.r2_key, 512 * 1024);
+        const text = bytes ? Buffer.from(bytes).toString('utf8').slice(0, 12_000) : described;
+        media.push({ type: 'text', text: `${header}\n${fence(text || '(no content)')}` });
         continue;
       }
       const mimeType = mimeForKey(row.r2_key);
       const native = caps.input[source.modality as 'pdf' | 'image' | 'audio' | 'video'];
-      if (native && mimeType && mediaBudget > 0) {
+      const data =
+        native && mimeType && mediaBudget > 0 ? await tryRead(this.deps.storage, row.r2_key) : undefined;
+      if (data && mimeType) {
         mediaBudget--;
         media.push({ type: 'text', text: header });
-        media.push({
-          type: source.modality as MediaPart['type'],
-          mimeType,
-          data: await readAll(await this.deps.storage.getStream(row.r2_key)),
-        });
-        if (described) media.push({ type: 'text', text: `<file-content>\n${described}\n</file-content>` });
+        media.push({ type: source.modality as MediaPart['type'], mimeType, data });
+        if (described) media.push({ type: 'text', text: fence(described) });
         continue;
       }
       // Fallback (ARCHITECTURE §5.2): poster frame / page image when the model takes images, plus stored text.
       media.push({ type: 'text', text: `${header} (preview and stored description)` });
-      if (row.thumb_r2_key && caps.input.image && mediaBudget > 0) {
+      const thumb =
+        row.thumb_r2_key && caps.input.image && mediaBudget > 0
+          ? await tryRead(this.deps.storage, row.thumb_r2_key)
+          : undefined;
+      if (thumb) {
         mediaBudget--;
-        media.push({
-          type: 'image',
-          mimeType: 'image/jpeg',
-          data: await readAll(await this.deps.storage.getStream(row.thumb_r2_key)),
-        });
+        media.push({ type: 'image', mimeType: 'image/jpeg', data: thumb });
       }
-      media.push({
-        type: 'text',
-        text: `<file-content>\n${described || '(no description)'}\n</file-content>`,
-      });
+      media.push({ type: 'text', text: fence(described || '(no description)') });
     }
     if (unknown.length) notes.push(`Ignored unknown ids: ${unknown.join(', ')}.`);
     if (ids.length - unknown.length > MAX_OPEN) notes.push(`Only the first ${MAX_OPEN} were opened.`);
