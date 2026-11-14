@@ -1,30 +1,38 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import { ModalitySchema } from '@app/shared';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { AuthProvider, useAuth } from './lib/auth';
+import { AppShell } from './components/AppShell';
+import { AuthPage } from './pages/Auth';
+import { Collections } from './pages/Collections';
+import { CollectionPage } from './pages/Collection';
 import './style.css';
-const apiUrl = import.meta.env.VITE_API_URL;
-function Home() {
-  return (
-    <main className="mx-auto max-w-3xl px-6 py-24">
-      <p className="text-sm text-slate-500">Your library</p>
-      <h1 className="mt-4 text-4xl font-semibold tracking-tight">Ask your materials.</h1>
-      <p className="mt-5 max-w-xl text-slate-600">
-        Documents, images, audio and video will come together here.
-      </p>
-      <p className="mt-12 text-sm text-slate-500">
-        Foundation ready for {ModalitySchema.options.length} media types
-        {apiUrl ? '.' : '. VITE_API_URL is not set.'}
-      </p>
-    </main>
+function Protected() {
+  const { user, loading } = useAuth();
+  if (loading) return <main className="container">Loading your library…</main>;
+  return user ? <AppShell /> : <Navigate to="/login" replace />;
+}
+async function start() {
+  if (import.meta.env.DEV && !import.meta.env.VITE_API_URL) {
+    const { worker } = await import('./mocks/browser');
+    await worker.start({ onUnhandledRequest: 'bypass' });
+  }
+  createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<AuthPage />} />
+            <Route path="/register" element={<AuthPage register />} />
+            <Route element={<Protected />}>
+              <Route path="/" element={<Collections />} />
+              <Route path="/collections/:id" element={<CollectionPage />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </React.StrictMode>,
   );
 }
-createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-      </Routes>
-    </BrowserRouter>
-  </React.StrictMode>,
-);
+void start();

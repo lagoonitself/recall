@@ -2,7 +2,7 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by Claude (orchestrator)
+Last updated: 2026-11-14 by GPT-6.1 Terra (P8)
 
 ---
 
@@ -24,7 +24,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 | P5 LLM provider | in progress | GPT-6.1 Terra | part/p5-llm-provider | Fake only; real adapter blocked on LLM choice |
 | P6 Retrieval | not started | — | — | |
 | P7 Agent + chat API | not started | — | — | |
-| P8 FE library | in progress | GPT-6.1 Terra | part/p8-fe-library | Includes Google sign-in button (D19) |
+| P8 FE library | in review | GPT-6.1 Terra | part/p8-fe-library | Mocked library and Google sign-in; preview and real API integration remain |
 | P9 FE chat | not started | — | — | |
 | P10 Deploy + ops | not started | — | — | Needs Neon, R2, Render, Vercel, Cloudflare accounts |
 | P11 Review + QA | not started | — | — | |
@@ -46,11 +46,17 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 Docker Desktop Linux engine was unavailable during P0 verification. The install reports three development dependency vulnerabilities; `npm audit --omit=dev` reports zero.
 
+P8 file previews are not implemented: the shared file response exposes no chunk IDs, while the media endpoint requires one. P1/P2 integration, signed R2/CORS verification, real uploads and Google sign-in with a configured client ID remain to be checked. The HEIC converter is a large lazy-loaded chunk. `npm install` reports three dependency vulnerabilities (one moderate, two critical); investigate before deployment.
+
 ---
 
 ## Session log
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
+
+### 2026-11-14 · GPT-6.1 Terra · P8 frontend library
+- Built contract-validated auth, collections and upload UI with development MSW mocks, Google GIS integration, responsive styling and upload validation tests. `npm run typecheck`, `npm test`, `npm run lint`, and `npm run build` passed. Browser checked mock sign-in, collection creation, text upload to ready and 375px collection layout.
+- File previews and real P1/P2/Google integration remain as described above. Dependencies and MSW worker setup required changes outside the brief's source scope: `client/package.json`, `client/public/` and root `package-lock.json`; routing also required `client/src/main.tsx` and `client/src/style.css`. Handoff updated as required.
 
 ### 2026-11-14 · Claude · P0 review + lane start
 - Finished the P0 review: config fix for real `.env`, malformed JSON → 400, query/param validation, no R2 keys in the contract, min password 8. Prettier added.
