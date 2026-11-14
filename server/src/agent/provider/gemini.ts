@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import type { Content, Part } from '@google/genai';
 import { capabilities } from './capabilities.js';
+import { DESCRIBE_PROMPT, parseJsonReply } from './prompts.js';
 import { PieceDescriptionSchema } from './types.js';
 import type { AgentMessage, LlmProvider, MediaPart, ProviderEvent, TextPart } from './types.js';
 
@@ -141,7 +142,7 @@ export class GeminiProvider implements LlmProvider {
                   parts: mediaParts([
                     {
                       type: 'text',
-                      text: 'Describe this media as JSON with string fields summary, transcript, visible_text and an array of string tags.',
+                      text: DESCRIBE_PROMPT,
                     },
                     piece,
                   ]),
@@ -151,7 +152,7 @@ export class GeminiProvider implements LlmProvider {
             }),
           );
           try {
-            return PieceDescriptionSchema.parse(JSON.parse(result.text ?? ''));
+            return PieceDescriptionSchema.parse(parseJsonReply(result.text ?? ''));
           } catch {
             throw new Error('Gemini returned an invalid description');
           }

@@ -71,3 +71,23 @@ describe('OpenAI-compatible adapter', () => {
     expect(JSON.stringify(fetchMock.mock.calls[0][1].headers)).not.toContain('x-opencode-session');
   });
 });
+
+describe('review fixes', () => {
+  it('parses JSON replies wrapped in a markdown fence', async () => {
+    const { parseJsonReply } = await import('./prompts.js');
+    expect(parseJsonReply('```json\n{"a":1}\n```')).toEqual({ a: 1 });
+    expect(parseJsonReply('{"a":2}')).toEqual({ a: 2 });
+  });
+  it('maps audio MIME types to input_audio formats', async () => {
+    const { audioFormat } = await import('./openai.js');
+    expect(audioFormat('audio/mpeg')).toBe('mp3');
+    expect(audioFormat('audio/x-m4a')).toBe('m4a');
+    expect(audioFormat('audio/wav')).toBe('wav');
+  });
+  it('reuses one provider instance per configuration so concurrency is process-wide', async () => {
+    const { getProvider, getDescribeProvider } = await import('./index.js');
+    const env = { LLM_PROVIDER: 'openrouter', OPENROUTER_API_KEY: 'k', LLM_CONCURRENCY: '2' };
+    expect(getProvider(env)).toBe(getProvider(env));
+    expect(getDescribeProvider(env)).toBe(getProvider(env));
+  });
+});

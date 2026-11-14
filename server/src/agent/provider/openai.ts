@@ -1,8 +1,15 @@
 import { capabilities } from './capabilities.js';
+import { DESCRIBE_PROMPT, parseJsonReply } from './prompts.js';
 import { PieceDescriptionSchema } from './types.js';
 import type { AgentMessage, LlmProvider, MediaPart, ProviderEvent, TextPart } from './types.js';
 
-type Options = { apiKey: string; baseUrl: string; provider: 'openrouter' | 'opencode'; concurrency: number };
+type Options = {
+  apiKey: string;
+  baseUrl: string;
+  provider: 'openrouter' | 'opencode';
+  concurrency: number;
+  appUrl?: string;
+};
 type Delta = {
   content?: string | null;
   reasoning?: string | null;
@@ -10,6 +17,20 @@ type Delta = {
   tool_calls?: { index: number; id?: string; function?: { name?: string; arguments?: string } }[];
 };
 type Chunk = { choices?: { delta?: Delta; finish_reason?: string | null }[]; error?: unknown };
+
+// OpenAI-style input_audio wants a short format name, not the MIME subtype ("audio/mpeg" -> "mp3").
+const AUDIO_FORMATS: Record<string, string> = {
+  'audio/mpeg': 'mp3',
+  'audio/mp3': 'mp3',
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/wave': 'wav',
+  'audio/mp4': 'm4a',
+  'audio/x-m4a': 'm4a',
+  'audio/ogg': 'ogg',
+  'audio/webm': 'webm',
+};
+export const audioFormat = (mime: string) => AUDIO_FORMATS[mime] ?? mime.split('/')[1] ?? 'mp3';
 
 function parts(content: (TextPart | MediaPart)[]) {
   return content.map((part) => {
@@ -19,7 +40,7 @@ function parts(content: (TextPart | MediaPart)[]) {
     if (part.type === 'image') return { type: 'image_url', image_url: { url } };
     if (part.type === 'pdf') return { type: 'file', file: { filename: 'document.pdf', file_data: url } };
     if (part.type === 'audio')
-      return { type: 'input_audio', input_audio: { data, format: part.mimeType.split('/')[1] } };
+      return { type: 'input_audio', input_audio: { data, format: audioFormat(part.mimeType) } };
     return { type: 'video_url', video_url: { url } };
   });
 }
@@ -75,7 +96,10 @@ export class OpenAICompatibleProvider implements LlmProvider {
             Authorization: `Bearer ${this.options.apiKey}`,
             'Content-Type': 'application/json',
             ...(this.options.provider === 'openrouter'
-              ? { 'HTTP-Referer': 'https://recall.app', 'X-Title': 'Recall' }
+              ? {
+                  ...(this.options.appUrl ? { 'HTTP-Referer': this.options.appUrl } : {}),
+                  'X-Title': 'Recall',
+                }
               : {}),
           },
           body: JSON.stringify(body),
@@ -197,7 +221,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
                 content: parts([
                   {
                     type: 'text',
-                    text: 'Describe this media as JSON with string fields summary, transcript, visible_text and an array of string tags.',
+                    text: DESCRIBE_PROMPT,
                   },
                   piece,
                 ]),
@@ -208,7 +232,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
           const content = result.choices?.[0]?.message?.content;
           if (!content) throw new Error('Provider returned an empty description');
           try {
-            return PieceDescriptionSchema.parse(JSON.parse(content));
+            return PieceDescriptionSchema.parse(parseJsonReply(content));
           } catch {
             throw new Error('Provider returned an invalid description');
           }

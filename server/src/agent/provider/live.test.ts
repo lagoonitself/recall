@@ -10,11 +10,12 @@ if (
   (provider === 'gemini' || provider === 'openrouter' || provider === 'opencode')
 ) {
   const model =
-    provider === 'gemini'
+    process.env.LIVE_MODEL ||
+    (provider === 'gemini'
       ? 'gemini-3.5-flash-lite'
       : provider === 'openrouter'
-        ? 'google/gemini-2.5-flash-lite'
-        : 'longcat-2.5-free';
+        ? 'nvidia/nemotron-3.5-super-vl:free'
+        : 'longcat-2.5-free');
   const firstInput = {
     model,
     system: 'Call the search_library tool with query cats before answering.',
@@ -36,7 +37,7 @@ if (
       type: 'image',
       mimeType: 'image/png',
       data: Buffer.from(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a3kAAAAASUVORK5CYII=',
+        'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFWEXHbQSACj/P8Fu7N9hAAAAAElFTkSuQmCC',
         'base64',
       ),
     },

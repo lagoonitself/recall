@@ -12,6 +12,18 @@ models['google/gemini-2.5-flash-lite'] = {
   reasoning: true,
   maxMediaPartsPerRequest: 1,
 };
+models['nvidia/nemotron-3.5-super-vl:free'] = {
+  input: { image: true, pdf: false, audio: false, video: true },
+  tools: true,
+  reasoning: true,
+  maxMediaPartsPerRequest: 1,
+};
+models['nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'] = {
+  input: { image: true, pdf: false, audio: true, video: true },
+  tools: true,
+  reasoning: true,
+  maxMediaPartsPerRequest: 1,
+};
 models['longcat-2.5-free'] = {
   input: { image: true, pdf: false, audio: false, video: false },
   tools: true,

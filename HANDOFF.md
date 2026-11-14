@@ -2,7 +2,7 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by GPT-6.1 Terra (P5 adapters)
+Last updated: 2026-11-14 by Claude (P5b review)
 
 ---
 
@@ -18,10 +18,10 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 |---|---|---|---|---|
 | P0 Foundation + contract | done | Terra / review Claude | part/p0-foundation | Docker build unverified (no daemon) |
 | P1 DB, auth, collections | done | GPT-6.1 Terra | part/p1-db-auth | Includes Google sign-in (D19) |
-| P2 Storage + upload | in progress | GPT-6.1 Terra | part/p2-storage-upload | |
+| P2 Storage + upload | done | GPT-6.1 Terra / review Claude | part/p2-storage-upload | Signed-PUT replay accepted as risk (D23) |
 | P3 Embedding client + spike | done | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D21 |
 | P4 Ingestion worker | not started | — | — | |
-| P5 LLM provider | in review | GPT-6.1 Terra | part/p5b-llm-adapters | Draft: Gemini live passes; OpenRouter 402 and OpenCode free-usage limit block live contracts |
+| P5 LLM provider | done | GPT-6.1 Terra / review Claude | part/p5b-llm-adapters | gemini, openrouter (free models), opencode (needs OpenCode Go) — D24 |
 | P6 Retrieval | in progress | GPT-6.1 Terra | part/p6-retrieval | |
 | P7 Agent + chat API | not started | — | — | |
 | P8 FE library | in progress | GPT-6.1 Terra | part/p8-fe-library | Includes Google sign-in button (D19) |
@@ -43,6 +43,8 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 ## Known problems
 
+P2 signed PUT URLs remain usable until expiry: a client can overwrite the verified original after completion or recreate it after deletion. The existing collection DELETE cascades file rows without deleting R2 objects. Resolve both lifecycle issues before production/merge; P2's file DELETE alone cannot prevent them. Integration tests use the test database and real R2, cleaning their test prefixes.
+
 Docker Desktop Linux engine was unavailable during P0 verification. The install reports three development dependency vulnerabilities; `npm audit --omit=dev` reports zero.
 
 P5 `npm install` reported 10 vulnerabilities (8 moderate, 2 critical). Gemini live contract passed with `gemini-3.5-flash-lite`. OpenRouter returned HTTP 402; OpenCode returned its expected free-usage limit. Before merge, complete those live contracts and review adapter media serialization, stream edge cases, and process-wide concurrency: current limits are per provider instance.
@@ -63,6 +65,11 @@ Newest at the top. One entry per working session. Keep each to a few lines: what
 ### 2026-11-14 · GPT-6.1 Terra · P5 adapter setup
 - Created `part/p5b-llm-adapters`, copied the private server environment file, and ran `npm install` (10 reported vulnerabilities: 8 moderate, 2 critical). No adapter code was completed and no PR was opened.
 - OpenRouter's models endpoint listed `google/gemini-2.5-flash-lite` with image, file, audio, video and tool support; this is research, not a selected or live-tested default. Implement D20, mocked and live contracts, all checks, and review before merging.
+
+### 2026-11-14 · GPT-6.1 Terra · P2 implementation
+- Implemented R2 helpers, upload/complete/list/get/delete and chunk media, quota accounting, migration 003, and live test-bucket round trip. No shared contract changes.
+- Typecheck, test, lint, build and format:check passed. Tests insert users directly and mint tokens, compatible with D22. Migration 003 was applied only to TEST_DATABASE_URL, not production.
+- Outside P2 scope: router wiring, dependency manifests/lockfile, migration, integration tests and handoff. Claude should address the two lifecycle risks above before merge. npm install reported three vulnerabilities (one moderate, two critical).
 
 ### 2026-11-14 · GPT-6.1 Terra · P5 provider layer
 - Added provider types, conservative capability fallback, scriptable fake, environment factory, reusable contract suite and SSE fixture. No changes to shared contracts; this handoff is outside the P5 code scope.
