@@ -35,9 +35,9 @@ export function createApp(options: AppOptions = {}) {
   const pool = () => options.pool ?? getPool();
   const secret = options.jwtSecret ?? process.env.JWT_SECRET ?? '';
   app.use('/api/auth', authRouter(pool, secret, options.googleClientId, options.googleVerifier));
-  app.use('/api/collections', collectionsRouter(pool, secret));
   let storage = options.storage;
   const getStorage = () => (storage ??= createR2());
+  app.use('/api/collections', collectionsRouter(pool, secret, getStorage));
   app.use(
     '/api/files',
     filesRouter(

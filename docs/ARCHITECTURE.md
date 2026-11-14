@@ -23,7 +23,7 @@ Related docs: [PLAN.md](PLAN.md) (work split into parts), [DECISIONS.md](DECISIO
 | Layer | Choice | Notes |
 |---|---|---|
 | Frontend | React, Vite, React Router, Tailwind CSS, TypeScript, Fetch API | Streaming chat via `fetch` + `ReadableStream`. HEIC photos converted to JPEG in the browser (`heic2any`) before upload. |
-| Backend | Node.js, Express, TypeScript | JWT auth, bcrypt, Zod validation, Multer for chat attachments |
+| Backend | Node.js, Express, TypeScript | Google sign-in, JWT sessions, Zod validation, Multer for chat attachments |
 | Shared contract | `shared/` workspace package | Zod schemas + TS types for every API body and SSE event. Imported by client and server. |
 | Media processing | ffmpeg (video/audio), pdf-lib (split PDF pages), poppler-utils `pdftoppm` (render page thumbnails), sharp (images), mammoth (DOCX) | Runs in the backend container |
 | Embeddings | Gemini API, `gemini-embedding-2`, 1536 dimensions | **Mandatory.** Text, image, audio, video and PDF inputs |
@@ -45,7 +45,7 @@ flowchart LR
     end
 
     subgraph API["Backend (Express)"]
-        AUTH[Auth: JWT + bcrypt]
+        AUTH[Auth: Google ID token + JWT]
         ROUTES[REST routes + Zod]
         AGENT[Agent loop]
         TOOLS[Tools: search_library, open_sources, list_files]
@@ -334,7 +334,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE users (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email         text UNIQUE NOT NULL,
-  password_hash text,                 -- NULL for Google-only accounts
+  password_hash text,                 -- unused since D22 (Google only); kept NULL
   google_sub    text UNIQUE,          -- Google account id ('sub' claim)
   name          text,
   avatar_url    text,
@@ -463,8 +463,6 @@ All routes except auth and health need `Authorization: Bearer <jwt>`. All bodies
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | `204 No Content`, touches nothing (keep-alive target) |
-| POST | `/api/auth/register` | Create account (bcrypt hash) |
-| POST | `/api/auth/login` | Returns JWT |
 | GET | `/api/auth/me` | Current user |
 | GET | `/api/auth/config` | Public auth config: `{ googleClientId }` (null when Google sign-in is off) |
 | POST | `/api/auth/google` | Body `{ credential }` = Google ID token from Google Identity Services. Server verifies signature, `aud` = `GOOGLE_CLIENT_ID`, `email_verified`. Finds user by `google_sub`, else links by verified email, else creates one. Returns our JWT. |
@@ -509,7 +507,7 @@ Streaming rules:
 
 | Route | Screen |
 |---|---|
-| `/login`, `/register` | Auth |
+| `/login` | Google sign-in |
 | `/` | Collections grid with file counts |
 | `/collections/:id` | Files in a collection: drag-and-drop upload, live processing status, preview |
 | `/chat`, `/chat/:conversationId` | Chat: collection picker, message box with photo / voice recording / video attachments, streamed answer, activity log, source cards |
@@ -524,7 +522,7 @@ Main components:
 
 ## 10. Security
 
-- Passwords hashed with bcrypt (cost 12). JWTs expire in 7 days.
+- Sign-in is Google only (D22); the server verifies Google's ID token and issues its own JWT, which expires in 7 days. New accounts have no password; a legacy hash from before D22 is cleared when its email is linked to Google.
 - Every query is scoped by `user_id`. Signed R2 URLs are issued only after an ownership check, and expire in 10 minutes.
 - Zod validates every request. Uploads are checked by MIME type and size (50 MB per file). The signed PUT URL includes `Content-Length` and `Content-Type`, and `/complete` checks the stored object with `HEAD` before queuing it.
 - Per-user caps (storage quota, uploads per day, chat messages per minute) protect the shared API keys and the 10 GB R2 bucket.

@@ -159,4 +159,29 @@ describe.skipIf(!ready)('P2 integration on test database and R2', () => {
       (await request(app).post('/api/files/upload-url').set('Authorization', auth).send(body)).status,
     ).toBe(429);
   }, 60000);
+  it('deleting a collection removes its files from R2', async () => {
+    const doomed = await pool.query('INSERT INTO collections(user_id,name) VALUES ($1,$2) RETURNING id', [
+      owner,
+      'Doomed',
+    ]);
+    const fileId = randomUUID();
+    const key = `users/${owner}/files/${fileId}/original.txt`;
+    await pool.query(
+      `INSERT INTO files(id,user_id,collection_id,name,mime_type,modality,size_bytes,r2_key,status)
+       VALUES ($1,$2,$3,'a.txt','text/plain','text',1,$4,'queued')`,
+      [fileId, owner, doomed.rows[0].id, key],
+    );
+    await storage.put(key, Buffer.from('x'), 'text/plain');
+    await storage.put(`users/${owner}/files/${fileId}/pieces/0.txt`, Buffer.from('x'), 'text/plain');
+    expect(
+      (await request(app).delete(`/api/collections/${doomed.rows[0].id}`).set('Authorization', otherAuth))
+        .status,
+    ).toBe(404);
+    expect((await storage.head(key)).ContentLength).toBe(1);
+    expect(
+      (await request(app).delete(`/api/collections/${doomed.rows[0].id}`).set('Authorization', auth)).status,
+    ).toBe(204);
+    await expect(storage.head(key)).rejects.toMatchObject({ $metadata: { httpStatusCode: 404 } });
+    expect((await pool.query('SELECT 1 FROM files WHERE id = $1', [fileId])).rowCount).toBe(0);
+  }, 60000);
 });

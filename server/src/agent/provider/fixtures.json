@@ -1,0 +1,15 @@
+{
+  "turns": [
+    [
+      { "type": "reasoning.delta", "text": "Searching the library." },
+      { "type": "tool_call", "id": "call-1", "name": "search_library", "args": { "query": "cats" } },
+      { "type": "turn.end", "stopReason": "tool_calls", "providerState": { "opaque": ["state"] } }
+    ],
+    [
+      { "type": "text.delta", "text": "Found " },
+      { "type": "text.delta", "text": "a cat." },
+      { "type": "turn.end", "stopReason": "stop" }
+    ]
+  ],
+  "descriptions": [{ "summary": "A cat", "transcript": "", "visible_text": "", "tags": ["cat"] }]
+}
