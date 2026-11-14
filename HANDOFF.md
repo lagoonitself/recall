@@ -21,7 +21,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 | P2 Storage + upload | not started | — | — | |
 | P3 Embedding client + spike | in review | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D20 |
 | P4 Ingestion worker | not started | — | — | |
-| P5 LLM provider | in progress | GPT-6.1 Terra | part/p5-llm-provider | Fake only; real adapter blocked on LLM choice |
+| P5 LLM provider | in progress | GPT-6.1 Terra | part/p5-llm-provider | Fake + interface first; then real adapters for gemini, openrouter, opencode (D20) |
 | P6 Retrieval | not started | — | — | |
 | P7 Agent + chat API | not started | — | — | |
 | P8 FE library | in progress | GPT-6.1 Terra | part/p8-fe-library | Includes Google sign-in button (D19) |
@@ -32,7 +32,6 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 ## Waiting on the user
 
-- [ ] Choose the LLM (see Pending in DECISIONS.md).
 - [ ] Check Gemini key limits for `gemini-embedding-2` in AI Studio.
 - [ ] Create a Google OAuth **Web client ID** (Google Cloud Console → APIs & Services → Credentials). Authorized JavaScript origins: `http://localhost:5173` and the Vercel URL. Then set `GOOGLE_CLIENT_ID`.
 - [ ] Create accounts / keys when P0–P3 need them: Gemini, Neon, Cloudflare (R2 + Workers), Render, Vercel, LLM provider. Put them in `server/.env` yourself; agents never ask for keys in chat.
