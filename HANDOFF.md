@@ -17,11 +17,11 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 | Part | Status | Taken by | Branch | Notes |
 |---|---|---|---|---|
 | P0 Foundation + contract | done | Terra / review Claude | part/p0-foundation | Docker build unverified (no daemon) |
-| P1 DB, auth, collections | in review | GPT-6.1 Terra | part/p1-db-auth | Includes Google sign-in (D19) |
-| P2 Storage + upload | not started | — | — | |
+| P1 DB, auth, collections | done | GPT-6.1 Terra | part/p1-db-auth | Includes Google sign-in (D19) |
+| P2 Storage + upload | in progress | GPT-6.1 Terra | part/p2-storage-upload | |
 | P3 Embedding client + spike | done | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D21 |
 | P4 Ingestion worker | not started | — | — | |
-| P5 LLM provider | in progress | GPT-6.1 Terra | part/p5-llm-provider | Fake + interface first; then real adapters for gemini, openrouter, opencode (D20) |
+| P5 LLM provider | in progress | GPT-6.1 Terra | part/p5-llm-provider | Interface + fake merged; real adapters gemini/openrouter/opencode next (D20) |
 | P6 Retrieval | in review | GPT-6.1 Terra | part/p6-retrieval | Hybrid search, audio splitting and test-branch integration tests |
 | P7 Agent + chat API | not started | — | — | |
 | P8 FE library | in progress | GPT-6.1 Terra | part/p8-fe-library | Includes Google sign-in button (D19) |
@@ -38,14 +38,16 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 ## Next steps
 
-1. Claude reviews P6; P7 can consume `searchLibrary` after merge.
-2. Continue P2 and the other parallel lanes; P4 needs P2, P3 and P5.
+1. Running: P2, P8, P5 real adapters. Claude reviews P6 and the other PRs.
+2. Next: P9 after P8, P4 when P2 is in `main`, P7 when P2 + P6 are in `main`.
 
 ## Known problems
 
 P6 needs ffmpeg for audio attachments and pgvector 0.8+ for iterative scans. The small test fixture favored the scope index; HNSW use was confirmed with planner overrides, not production-size benchmarks.
 
 Docker Desktop Linux engine was unavailable during P0 verification. The install reports three development dependency vulnerabilities; `npm audit --omit=dev` reports zero.
+
+P5 `npm install` reported 10 vulnerabilities (8 moderate, 2 critical); the real LLM adapter, live contract run, chunked tool-argument parsing, and model-specific capabilities remain blocked on the LLM choice.
 
 P3 did not establish actual maximum fully processed duration/pages: over-limit requests returned vectors without proving completeness. Google documents that video audio is not processed; P4 must ingest it separately. Dependency install reports three vulnerabilities (one moderate, two critical); audit before deployment.
 
@@ -60,6 +62,10 @@ Newest at the top. One entry per working session. Keep each to a few lines: what
 - Test fixtures use only TEST_DATABASE_URL and directly insert users. Integration tests and HNSW EXPLAIN ANALYZE pass; the HNSW plan uses planner overrides on a small fixture.
 - P7 must translate internal search results and thumbnail keys into the existing Source wire shape; storage keys must never reach the client. No live embedding calls were made.
 - Outside P6 scope: this required handoff update. Claude review is next.
+
+### 2026-11-14 · GPT-6.1 Terra · P5 provider layer
+- Added provider types, conservative capability fallback, scriptable fake, environment factory, reusable contract suite and SSE fixture. No changes to shared contracts; this handoff is outside the P5 code scope.
+- `npm run typecheck`, `npm test` (27 tests), `npm run lint`, and `npm run build` passed. `npm install` succeeded with audit warnings. The real adapter and live tests await the user's LLM choice.
 
 ### 2026-11-14 · GPT-6.1 Terra · P1 implementation
 - Implemented database, auth (including Google), collections, and integration tests; main Neon migration applied after tests passed on the test branch.

@@ -19,7 +19,7 @@ Multimodal AI agent: upload documents, images, audio and video; ask by text, pho
 ## Hard rules
 
 - Frontend: React + Vite + Tailwind, TypeScript, in `client/`.
-- Backend: Node + Express, TypeScript, in `server/`. JWT + bcrypt + Zod validation.
+- Backend: Node + Express, TypeScript, in `server/`. Google sign-in only (D22) + JWT sessions + Zod validation.
 - Database: Neon Postgres + pgvector. Files: Cloudflare R2.
 - Embeddings: Gemini `gemini-embedding-2` only (1536 dims).
 - LLM: **provider not chosen yet.** All LLM calls go through `server/src/agent/provider/`. Never import a model SDK anywhere else. Model ids come from env (`AGENT_MODEL`, `DESCRIBE_MODEL`). Use `LLM_PROVIDER=fake` until the real adapter exists.
