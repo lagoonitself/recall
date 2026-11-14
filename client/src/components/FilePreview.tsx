@@ -58,6 +58,11 @@ export function FilePreview({ file, initialPage, onClose }: FilePreviewProps) {
   const openerRef = useRef<HTMLElement | null>(null);
   const retriedRef = useRef(false);
 
+  const handleTotalPages = useCallback((total: number) => {
+    setTotalPages(total);
+    setCurrentPage((page) => (total > 0 && page > total ? 1 : page));
+  }, []);
+
   // Keep input value in sync with currentPage
   useEffect(() => {
     setPageInputVal(String(currentPage));
@@ -269,11 +274,17 @@ export function FilePreview({ file, initialPage, onClose }: FilePreviewProps) {
       case 'pdf':
         return <FileText size={18} strokeWidth={1.75} className="preview-modality-icon" aria-hidden="true" />;
       case 'image':
-        return <ImageIcon size={18} strokeWidth={1.75} className="preview-modality-icon" aria-hidden="true" />;
+        return (
+          <ImageIcon size={18} strokeWidth={1.75} className="preview-modality-icon" aria-hidden="true" />
+        );
       case 'video':
-        return <VideoIcon size={18} strokeWidth={1.75} className="preview-modality-icon" aria-hidden="true" />;
+        return (
+          <VideoIcon size={18} strokeWidth={1.75} className="preview-modality-icon" aria-hidden="true" />
+        );
       case 'audio':
-        return <AudioLines size={18} strokeWidth={1.75} className="preview-modality-icon" aria-hidden="true" />;
+        return (
+          <AudioLines size={18} strokeWidth={1.75} className="preview-modality-icon" aria-hidden="true" />
+        );
       case 'text':
       default:
         return <FileCode size={18} strokeWidth={1.75} className="preview-modality-icon" aria-hidden="true" />;
@@ -499,11 +510,7 @@ export function FilePreview({ file, initialPage, onClose }: FilePreviewProps) {
           ) : error ? (
             <div className="preview-error-state" role="alert">
               <p className="preview-error-message">{error}</p>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => void fetchMedia()}
-              >
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => void fetchMedia()}>
                 Retry
               </button>
             </div>
@@ -514,11 +521,7 @@ export function FilePreview({ file, initialPage, onClose }: FilePreviewProps) {
               currentPage={currentPage}
               onPageChange={setCurrentPage}
               totalPages={totalPages}
-              onTotalPages={(n: number) => {
-                setTotalPages(n);
-                // A citation can point past the end (e.g. stale index); never show "42 of 14".
-                setCurrentPage((p) => (n > 0 && p > n ? 1 : p));
-              }}
+              onTotalPages={handleTotalPages}
               scale={pdfScale}
               onScaleChange={setPdfScale}
               isFitWidth={isPdfFitWidth}
@@ -548,11 +551,7 @@ export function FilePreview({ file, initialPage, onClose }: FilePreviewProps) {
               onError={handleMediaError}
             />
           ) : file.modality === 'text' && mediaUrl ? (
-            <TextFullViewer
-              url={mediaUrl}
-              fileName={file.name}
-              onError={handleMediaError}
-            />
+            <TextFullViewer url={mediaUrl} fileName={file.name} onError={handleMediaError} />
           ) : (
             <div className="preview-empty-state">
               <p className="preview-empty-message">No preview available for this file.</p>

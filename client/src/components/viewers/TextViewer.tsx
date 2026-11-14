@@ -77,11 +77,7 @@ export function TextViewer({ chunkId, location, fileName }: TextViewerProps) {
       {error && (
         <div className="viewer-error" role="alert">
           <p className="viewer-error-text">{error}</p>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => void loadText()}
-          >
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => void loadText()}>
             Retry
           </button>
         </div>

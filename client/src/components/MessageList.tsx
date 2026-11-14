@@ -70,7 +70,9 @@ const MessageItem = memo(function MessageItem({
 }: MessageItemProps) {
   const isUser = message.role === 'user';
   const sources = ('sources' in message && Array.isArray(message.sources) ? message.sources : []) as Source[];
-  const steps = ('steps' in message && Array.isArray(message.steps) ? message.steps : []) as (AgentStep | ActivityStepData)[];
+  const steps = ('steps' in message && Array.isArray(message.steps) ? message.steps : []) as (
+    AgentStep | ActivityStepData
+  )[];
 
   const [copied, setCopied] = useState(false);
   const [popover, setPopover] = useState<{
@@ -161,8 +163,9 @@ const MessageItem = memo(function MessageItem({
     handleClosePopover();
   };
 
-  const attachments = (message as unknown as { attachments?: Array<{ id: string; name: string; modality?: string }> })
-    .attachments;
+  const attachments = (
+    message as unknown as { attachments?: Array<{ id: string; name: string; modality?: string }> }
+  ).attachments;
 
   // 1. User Message
   if (isUser) {
@@ -216,9 +219,7 @@ const MessageItem = memo(function MessageItem({
 
         <div className="assistant-body">
           {/* (1) Activity */}
-          {steps && steps.length > 0 && (
-            <ActivityLog steps={steps} isStreaming={isStreaming} />
-          )}
+          {steps && steps.length > 0 && <ActivityLog steps={steps} isStreaming={isStreaming} />}
 
           {/* (2) Answer Prose */}
           <div
@@ -331,8 +332,7 @@ export function MessageList({
 }: MessageListProps) {
   const [internalActiveSid, setInternalActiveSid] = useState<string | null>(null);
 
-  const activeSourceSid =
-    externalActiveSid !== undefined ? externalActiveSid : internalActiveSid;
+  const activeSourceSid = externalActiveSid !== undefined ? externalActiveSid : internalActiveSid;
   const onSelectSource = useCallback(
     (sid: string) => {
       if (externalSelectSource) {

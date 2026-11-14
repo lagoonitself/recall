@@ -7,12 +7,7 @@ interface RenameDialogProps {
   onClose: () => void;
 }
 
-export function RenameDialog({
-  isOpen,
-  initialName,
-  onRename,
-  onClose,
-}: RenameDialogProps) {
+export function RenameDialog({ isOpen, initialName, onRename, onClose }: RenameDialogProps) {
   const [name, setName] = useState(initialName);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -77,18 +72,10 @@ export function RenameDialog({
           required
         />
         <div className="dialog-actions">
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={onClose}
-          >
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
             Cancel
           </button>
-          <button
-            type="submit"
-            className="btn btn-primary btn-sm"
-            disabled={!name.trim()}
-          >
+          <button type="submit" className="btn btn-primary btn-sm" disabled={!name.trim()}>
             Save
           </button>
         </div>

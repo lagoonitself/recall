@@ -62,12 +62,7 @@ export function ConfirmDialog({
           {description}
         </p>
         <div className="dialog-actions">
-          <button
-            ref={cancelBtnRef}
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={onClose}
-          >
+          <button ref={cancelBtnRef} type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
             {cancelLabel}
           </button>
           <button

@@ -40,13 +40,7 @@ function ModalityIcon({ modality }: { modality: Modality }) {
   }
 }
 
-function FileThumbnail({
-  file,
-  onClick,
-}: {
-  file: LibraryFile;
-  onClick: () => void;
-}) {
+function FileThumbnail({ file, onClick }: { file: LibraryFile; onClick: () => void }) {
   const [thumbUrl, setThumbUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const canPreview = file.status === 'ready' && Boolean(file.previewChunkId);
@@ -79,12 +73,7 @@ function FileThumbnail({
         title={`Preview ${file.name}`}
       >
         {thumbUrl && !failed ? (
-          <img
-            src={thumbUrl}
-            alt=""
-            className="file-thumbnail-img"
-            onError={() => setFailed(true)}
-          />
+          <img src={thumbUrl} alt="" className="file-thumbnail-img" onError={() => setFailed(true)} />
         ) : (
           <ModalityIcon modality={file.modality} />
         )}
@@ -194,11 +183,7 @@ export function CollectionPage() {
             <MessageSquare size={16} strokeWidth={1.75} />
             <span>Ask this collection</span>
           </Link>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => fileInputRef.current?.click()}
-          >
+          <button type="button" className="btn btn-primary" onClick={() => fileInputRef.current?.click()}>
             <Upload size={16} strokeWidth={1.75} />
             <span>Upload</span>
           </button>
@@ -219,7 +204,11 @@ export function CollectionPage() {
       />
 
       {error && (
-        <div role="alert" className="badge badge-danger" style={{ marginBottom: 'var(--space-4)', display: 'block' }}>
+        <div
+          role="alert"
+          className="badge badge-danger"
+          style={{ marginBottom: 'var(--space-4)', display: 'block' }}
+        >
           {error}
         </div>
       )}
@@ -309,7 +298,10 @@ export function CollectionPage() {
                 <div className="file-status-cell">
                   {isReady && <span className="file-ready-dot" title="Ready" />}
                   {isProcessing && (
-                    <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                    <span
+                      className="badge badge-warning"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}
+                    >
                       <span className="spinner" style={{ width: 12, height: 12 }} />
                       <span>
                         {file.piecesTotal != null
@@ -366,9 +358,7 @@ export function CollectionPage() {
       />
 
       {/* File Preview Modal */}
-      {previewFile && (
-        <FilePreview file={previewFile} onClose={() => setPreviewFile(null)} />
-      )}
+      {previewFile && <FilePreview file={previewFile} onClose={() => setPreviewFile(null)} />}
     </main>
   );
 }

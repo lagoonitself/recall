@@ -8,13 +8,7 @@ export interface MediaFullViewerProps {
   onError: () => void;
 }
 
-export function MediaFullViewer({
-  url,
-  modality,
-  fileName,
-  posterUrl,
-  onError,
-}: MediaFullViewerProps) {
+export function MediaFullViewer({ url, modality, fileName, posterUrl, onError }: MediaFullViewerProps) {
   if (modality === 'video') {
     return (
       <div className="preview-media-full-viewport">

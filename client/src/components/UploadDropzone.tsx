@@ -232,7 +232,14 @@ export function UploadDropzone({
           </span>
 
           {progress && (
-            <span aria-live="polite" style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)', color: 'var(--color-accent)' }}>
+            <span
+              aria-live="polite"
+              style={{
+                marginTop: 'var(--space-2)',
+                fontSize: 'var(--text-xs)',
+                color: 'var(--color-accent)',
+              }}
+            >
               {progress}
             </span>
           )}
@@ -247,7 +254,11 @@ export function UploadDropzone({
 
       {/* Global alert if error occurs while hasFiles is true */}
       {hasFiles && message && (
-        <div role="alert" className="badge badge-danger" style={{ marginTop: 'var(--space-3)', display: 'block' }}>
+        <div
+          role="alert"
+          className="badge badge-danger"
+          style={{ marginTop: 'var(--space-3)', display: 'block' }}
+        >
           {message}
         </div>
       )}

@@ -81,14 +81,12 @@ describe('ActivityLog', () => {
 
     // Step 0: Reasoning
     expect(screen.getByText('Reasoned')).toBeDefined();
-    expect(
-      screen.getAllByText(/The user is asking about the engine warning light/).length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/The user is asking about the engine warning light/).length).toBeGreaterThan(
+      0,
+    );
 
     // Step 1: Human sentence for search_library (never raw JSON)
-    expect(
-      screen.getByText('Searched for "engine coolant temperature warning light"'),
-    ).toBeDefined();
+    expect(screen.getByText('Searched for "engine coolant temperature warning light"')).toBeDefined();
 
     // Step 2: Tool result with summary
     expect(

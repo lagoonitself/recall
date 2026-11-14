@@ -69,7 +69,7 @@ export function GoogleSignIn({ mocking }: { mocking: boolean }) {
         theme: 'outline',
         size: 'large',
         text: 'continue_with',
-        width: 320,
+        width: Math.min(320, target.current.clientWidth || 320),
       });
     };
     const failed = () => {

@@ -99,12 +99,7 @@ describe('ChatSidebar', () => {
 
     render(
       <MemoryRouter>
-        <ChatSidebar
-          conversations={[]}
-          isOpen={true}
-          onClose={handleClose}
-          onNewChat={handleNewChat}
-        />
+        <ChatSidebar conversations={[]} isOpen={true} onClose={handleClose} onNewChat={handleNewChat} />
       </MemoryRouter>,
     );
 

@@ -158,9 +158,7 @@ export function ScopePicker({
                 onMouseEnter={() => setActiveIndex(idx)}
               >
                 <span className="chat-scope-item-name">{opt.name}</span>
-                {isSelected && (
-                  <Check className="chat-scope-check" strokeWidth={2} aria-hidden="true" />
-                )}
+                {isSelected && <Check className="chat-scope-check" strokeWidth={2} aria-hidden="true" />}
               </li>
             );
           })}

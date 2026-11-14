@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { FilePreview } from './FilePreview';
 import type { File as LibraryFile } from '@app/shared';
+import { getDocument } from 'pdfjs-dist';
 
 // Mock pdfjs-dist
 vi.mock('pdfjs-dist', () => ({
@@ -32,9 +33,7 @@ vi.mock('pdfjs-dist', () => ({
 vi.mock('../lib/api', () => ({
   api: {
     fileMedia: vi.fn((id: string) => Promise.resolve({ url: `https://example.com/media/${id}.pdf` })),
-    chunkMedia: vi.fn((chunkId: string) =>
-      Promise.resolve({ url: `https://example.com/chunk/${chunkId}` }),
-    ),
+    chunkMedia: vi.fn((chunkId: string) => Promise.resolve({ url: `https://example.com/chunk/${chunkId}` })),
     chunkDocument: vi.fn((chunkId: string) =>
       Promise.resolve({ url: `https://example.com/doc/${chunkId}.pdf` }),
     ),
@@ -46,8 +45,7 @@ class MockIntersectionObserver {
   unobserve() {}
   disconnect() {}
 }
-window.IntersectionObserver = MockIntersectionObserver as any;
-global.IntersectionObserver = MockIntersectionObserver as any;
+vi.stubGlobal('IntersectionObserver', MockIntersectionObserver);
 
 describe('FilePreview', () => {
   const mockPdfFile: LibraryFile = {
@@ -138,5 +136,18 @@ describe('FilePreview', () => {
     });
 
     expect(screen.getByTitle('Fit to screen')).toBeDefined();
+  });
+
+  it('keeps the PDF loaded while changing pages and zoom', async () => {
+    render(<FilePreview file={mockPdfFile} onClose={vi.fn()} />);
+    await screen.findByText('of 14');
+    const loadCount = vi.mocked(getDocument).mock.calls.length;
+
+    fireEvent.click(screen.getByTitle('Next page'));
+    fireEvent.click(screen.getByTitle('Zoom in'));
+    await waitFor(() => {
+      expect((screen.getByLabelText('Current page number') as HTMLInputElement).value).toBe('2');
+    });
+    expect(vi.mocked(getDocument).mock.calls.length).toBe(loadCount);
   });
 });

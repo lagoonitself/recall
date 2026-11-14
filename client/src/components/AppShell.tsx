@@ -40,18 +40,11 @@ export function AppShell() {
             <span>Recall</span>
           </Link>
           <nav aria-label="Main navigation" className="topbar-nav">
-            <NavLink
-              to="/"
-              end
-              className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}
-            >
+            <NavLink to="/" end className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>
               <Library size={16} strokeWidth={1.75} />
               <span>Library</span>
             </NavLink>
-            <NavLink
-              to="/chat"
-              className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}
-            >
+            <NavLink to="/chat" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>
               <MessageSquare size={16} strokeWidth={1.75} />
               <span>Chat</span>
             </NavLink>
@@ -70,9 +63,7 @@ export function AppShell() {
             {user?.avatarUrl ? (
               <img src={user.avatarUrl} alt="" className="topbar-avatar" />
             ) : (
-              <span className="topbar-avatar">
-                {(user?.name || user?.email || 'R')[0].toUpperCase()}
-              </span>
+              <span className="topbar-avatar">{(user?.name || user?.email || 'R')[0].toUpperCase()}</span>
             )}
             <span className="topbar-account-name">{user?.name || user?.email}</span>
           </button>

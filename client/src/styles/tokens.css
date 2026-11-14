@@ -9,13 +9,13 @@
   --font-serif: 'Newsreader Variable', Georgia, 'Times New Roman', serif;
   --font-mono: 'Geist Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 
-  --text-xs: 0.75rem;   /* 12 meta, timestamps */
+  --text-xs: 0.75rem; /* 12 meta, timestamps */
   --text-sm: 0.8125rem; /* 13 secondary UI */
-  --text-base: 0.875rem;/* 14 default UI */
+  --text-base: 0.875rem; /* 14 default UI */
   --text-md: 0.9375rem; /* 15 reading text (answers) */
-  --text-lg: 1.125rem;  /* 18 section titles */
-  --text-xl: 1.5rem;    /* 24 page titles in app chrome */
-  --text-2xl: 2.25rem;  /* 36 display (auth, empty states) */
+  --text-lg: 1.125rem; /* 18 section titles */
+  --text-xl: 1.5rem; /* 24 page titles in app chrome */
+  --text-2xl: 2.25rem; /* 36 display (auth, empty states) */
   --leading-tight: 1.2;
   --leading-normal: 1.5;
   --leading-reading: 1.65;
@@ -58,17 +58,17 @@
   color-scheme: light;
   --color-bg: #f7f6f3;
   --color-surface: #ffffff;
-  --color-surface-2: #f2f1ed;     /* wells, code, hover rows */
-  --color-surface-3: #e9e7e1;     /* pressed, selected */
+  --color-surface-2: #f2f1ed; /* wells, code, hover rows */
+  --color-surface-3: #e9e7e1; /* pressed, selected */
   --color-border: #e4e2dc;
   --color-border-strong: #d1cec6;
   --color-text: #1b1b19;
   --color-text-2: #5d5c57;
   --color-text-3: #8c8a84;
-  --color-accent: #1f3a2e;        /* primary buttons, active nav, focus */
+  --color-accent: #1f3a2e; /* primary buttons, active nav, focus */
   --color-accent-hover: #2a4c3c;
   --color-accent-fg: #ffffff;
-  --color-accent-soft: #e5ece7;   /* citation chips, selected items */
+  --color-accent-soft: #e5ece7; /* citation chips, selected items */
   --color-accent-soft-fg: #1f3a2e;
   --color-danger: #b42318;
   --color-danger-soft: #fbeae8;

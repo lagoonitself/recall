@@ -20,12 +20,7 @@ export interface ComposerProps {
   disabled?: boolean;
 }
 
-export function Composer({
-  onSend,
-  onStop,
-  isStreaming = false,
-  disabled = false,
-}: ComposerProps) {
+export function Composer({ onSend, onStop, isStreaming = false, disabled = false }: ComposerProps) {
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -228,11 +223,7 @@ export function Composer({
     if (file.type.startsWith('video/')) return Video;
     if (file.type.startsWith('audio/')) return Music;
     if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) return FileText;
-    if (
-      file.type.startsWith('text/') ||
-      file.name.endsWith('.docx') ||
-      file.name.endsWith('.md')
-    ) {
+    if (file.type.startsWith('text/') || file.name.endsWith('.docx') || file.name.endsWith('.md')) {
       return FileText;
     }
     return FileIcon;
@@ -265,11 +256,7 @@ export function Composer({
                   title={`${file.name} (${formatFileSize(file.size)})`}
                 >
                   {isImage && thumbUrl ? (
-                    <img
-                      src={thumbUrl}
-                      alt={file.name}
-                      className="composer-tile-thumb"
-                    />
+                    <img src={thumbUrl} alt={file.name} className="composer-tile-thumb" />
                   ) : (
                     <div className="composer-tile-file">
                       <Icon className="composer-tile-icon" strokeWidth={1.75} aria-hidden="true" />

@@ -74,11 +74,7 @@ export function ImageViewer({ chunkId, thumbUrl, fileName }: ImageViewerProps) {
       {error && (
         <div className="viewer-error" role="alert">
           <p className="viewer-error-text">{error}</p>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => void loadMedia()}
-          >
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => void loadMedia()}>
             Retry
           </button>
         </div>

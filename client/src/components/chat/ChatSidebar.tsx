@@ -137,9 +137,7 @@ export function ChatSidebar({
                 onClick={onClose}
                 title={conv.title || 'Untitled conversation'}
               >
-                <span className="chat-sidebar-item-title">
-                  {conv.title || 'Untitled conversation'}
-                </span>
+                <span className="chat-sidebar-item-title">{conv.title || 'Untitled conversation'}</span>
               </Link>
             );
           })}
@@ -151,25 +149,11 @@ export function ChatSidebar({
   return (
     <>
       {/* Mobile off-canvas backdrop */}
-      {isOpen && (
-        <div
-          className="chat-sidebar-backdrop"
-          onClick={onClose}
-          aria-hidden="true"
-        />
-      )}
+      {isOpen && <div className="chat-sidebar-backdrop" onClick={onClose} aria-hidden="true" />}
 
-      <aside
-        ref={sidebarRef}
-        className={`chat-sidebar ${isOpen ? 'open' : ''}`}
-        aria-label="Conversations"
-      >
+      <aside ref={sidebarRef} className={`chat-sidebar ${isOpen ? 'open' : ''}`} aria-label="Conversations">
         <div className="chat-sidebar-header">
-          <button
-            type="button"
-            className="btn btn-secondary chat-new-btn"
-            onClick={onNewChat}
-          >
+          <button type="button" className="btn btn-secondary chat-new-btn" onClick={onNewChat}>
             <SquarePen className="chat-new-icon" strokeWidth={1.75} aria-hidden="true" />
             <span>New chat</span>
             <kbd className="kbd chat-new-kbd">{shortcutHint}</kbd>

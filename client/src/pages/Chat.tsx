@@ -393,11 +393,7 @@ export function ChatPage() {
         </header>
 
         {/* Thread area */}
-        <div
-          ref={threadContainerRef}
-          className="chat-thread-container"
-          onScroll={handleScroll}
-        >
+        <div ref={threadContainerRef} className="chat-thread-container" onScroll={handleScroll}>
           <div className="chat-thread-content">
             {error && (
               <div className="chat-alert badge-danger" role="alert">
@@ -419,11 +415,7 @@ export function ChatPage() {
                 onSelectSuggestion={(prompt) => void handleSend(prompt, [])}
               />
             ) : (
-              <MessageList
-                messages={messages}
-                streamingMessage={streamingMessage}
-                onRetry={handleRetry}
-              />
+              <MessageList messages={messages} streamingMessage={streamingMessage} onRetry={handleRetry} />
             )}
           </div>
         </div>

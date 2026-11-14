@@ -82,11 +82,7 @@ export function MediaViewer({ modality, chunkId, location, fileName, thumbUrl }:
       {error && (
         <div className="viewer-error" role="alert">
           <p className="viewer-error-text">{error}</p>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => void loadMedia()}
-          >
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => void loadMedia()}>
             Refresh link
           </button>
         </div>

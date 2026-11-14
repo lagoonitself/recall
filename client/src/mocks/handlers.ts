@@ -439,7 +439,8 @@ export const handlers = [
   }),
   // Whole document a cited chunk belongs to.
   http.get('*/api/chunks/:id/document', ({ params }) => {
-    const file = files.find((item) => item.previewChunkId === params.id) ?? files.find((f) => f.modality === 'pdf');
+    const file =
+      files.find((item) => item.previewChunkId === params.id) ?? files.find((f) => f.modality === 'pdf');
     return HttpResponse.json({
       url: 'https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf',
       fileId: file?.id ?? '22222222-2222-4222-8222-222222222222',

@@ -143,11 +143,7 @@ function ReasoningBlock({ text }: { text: string }) {
     <div className="activity-reasoning-wrap">
       <p className={`activity-reasoning-p ${!expanded && isLong ? 'clamped' : ''}`}>{text}</p>
       {isLong && (
-        <button
-          type="button"
-          className="activity-reasoning-toggle"
-          onClick={() => setExpanded(!expanded)}
-        >
+        <button type="button" className="activity-reasoning-toggle" onClick={() => setExpanded(!expanded)}>
           {expanded ? 'Show less' : 'Show more'}
         </button>
       )}
@@ -206,9 +202,7 @@ function renderStepDetails(step: ActivityStepData) {
     const matchCount = chips.length || (Array.isArray(toolItems) ? toolItems.length : 0);
     const title =
       toolSummary ||
-      (matchCount > 0
-        ? `${matchCount} ${matchCount === 1 ? 'match' : 'matches'}`
-        : 'Found matching pieces');
+      (matchCount > 0 ? `${matchCount} ${matchCount === 1 ? 'match' : 'matches'}` : 'Found matching pieces');
 
     return {
       icon: <Search size={11} strokeWidth={1.75} aria-hidden="true" />,
@@ -317,9 +311,7 @@ export function ActivityLog({ steps, isStreaming = false }: ActivityLogProps) {
                 <div className="activity-step-main">
                   <div className="activity-step-header">
                     <span className="activity-step-title">{title}</span>
-                    {ms !== undefined && (
-                      <span className="activity-step-duration">{formatDuration(ms)}</span>
-                    )}
+                    {ms !== undefined && <span className="activity-step-duration">{formatDuration(ms)}</span>}
                   </div>
 
                   {body}

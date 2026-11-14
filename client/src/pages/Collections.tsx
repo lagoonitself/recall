@@ -144,11 +144,7 @@ export function Collections() {
           )}
         </div>
 
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => setCreating(true)}
-        >
+        <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
           <Plus size={16} strokeWidth={1.75} />
           <span>New collection</span>
         </button>
@@ -190,7 +186,11 @@ export function Collections() {
       )}
 
       {error && (
-        <div role="alert" className="badge badge-danger" style={{ marginBottom: 'var(--space-4)', display: 'block' }}>
+        <div
+          role="alert"
+          className="badge badge-danger"
+          style={{ marginBottom: 'var(--space-4)', display: 'block' }}
+        >
           {error}
         </div>
       )}
@@ -209,11 +209,7 @@ export function Collections() {
           <p className="library-empty-help">
             Create your first collection to organize and search research papers, transcripts, and media.
           </p>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => setCreating(true)}
-          >
+          <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
             <Plus size={16} strokeWidth={1.75} />
             <span>New collection</span>
           </button>

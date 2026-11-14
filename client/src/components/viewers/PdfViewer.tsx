@@ -11,13 +11,7 @@ export interface PdfViewerProps {
   onOpenDocument?: () => void;
 }
 
-export function PdfViewer({
-  chunkId,
-  page = 1,
-  thumbUrl,
-  fileName,
-  onOpenDocument,
-}: PdfViewerProps) {
+export function PdfViewer({ chunkId, page = 1, thumbUrl, fileName, onOpenDocument }: PdfViewerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
@@ -114,11 +108,7 @@ export function PdfViewer({
       {error && (
         <div className="viewer-error" role="alert">
           <p className="viewer-error-text">{error}</p>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => void loadMediaUrl()}
-          >
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => void loadMediaUrl()}>
             Retry
           </button>
         </div>
@@ -129,12 +119,7 @@ export function PdfViewer({
       {/* Show page thumbnail first while rendering or as fallback */}
       {thumbUrl && !rendered && (
         <div className="pdf-thumb-wrapper">
-          <img
-            src={thumbUrl}
-            alt={`${fileName} page ${page}`}
-            className="pdf-thumb-img"
-            loading="lazy"
-          />
+          <img src={thumbUrl} alt={`${fileName} page ${page}`} className="pdf-thumb-img" loading="lazy" />
         </div>
       )}
 

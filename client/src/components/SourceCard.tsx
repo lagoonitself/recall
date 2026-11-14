@@ -161,19 +161,11 @@ export function SourceDetailPanel({ source, index, onClose }: SourceDetailPanelP
         )}
 
         {source.modality === 'image' && (
-          <ImageViewer
-            chunkId={source.chunkId}
-            thumbUrl={source.thumbUrl}
-            fileName={source.fileName}
-          />
+          <ImageViewer chunkId={source.chunkId} thumbUrl={source.thumbUrl} fileName={source.fileName} />
         )}
 
         {source.modality === 'text' && (
-          <TextViewer
-            chunkId={source.chunkId}
-            location={source.location}
-            fileName={source.fileName}
-          />
+          <TextViewer chunkId={source.chunkId} location={source.location} fileName={source.fileName} />
         )}
       </div>
 
@@ -188,13 +180,7 @@ export function SourceDetailPanel({ source, index, onClose }: SourceDetailPanelP
   );
 }
 
-export function SourceCard({
-  source,
-  index,
-  isActive = false,
-  onOpen,
-  standalone = true,
-}: SourceCardProps) {
+export function SourceCard({ source, index, isActive = false, onOpen, standalone = true }: SourceCardProps) {
   const [expanded, setExpanded] = useState(false);
   const cardRef = useRef<HTMLElement | null>(null);
 

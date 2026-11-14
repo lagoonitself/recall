@@ -119,9 +119,7 @@ describe('MessageList', () => {
       },
     ];
 
-    const { container } = render(
-      <MessageList messages={adjacentMsg} onSelectSource={handleSelect} />,
-    );
+    const { container } = render(<MessageList messages={adjacentMsg} onSelectSource={handleSelect} />);
 
     // Merged adjacent pills inside .citation-group
     const citationGroup = container.querySelector('.citation-group');

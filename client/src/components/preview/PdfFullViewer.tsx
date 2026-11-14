@@ -56,7 +56,7 @@ export function PdfFullViewer({
   // Initialize PDF worker & load document
   useEffect(() => {
     let cancelled = false;
-    let loadingTask: ReturnType<typeof import('pdfjs-dist')['getDocument']> | null = null;
+    let loadingTask: ReturnType<(typeof import('pdfjs-dist'))['getDocument']> | null = null;
 
     async function loadDocument() {
       setLoading(true);
@@ -134,21 +134,18 @@ export function PdfFullViewer({
   }, [isFitWidth, updateFitWidth]);
 
   // Jump to specific page
-  const scrollToPage = useCallback(
-    (pageNumber: number, smooth = true, flash = false) => {
-      const el = pageRefs.current[pageNumber];
-      if (!el || !scrollViewportRef.current) return;
-      el.scrollIntoView?.({
-        behavior: smooth ? 'smooth' : 'auto',
-        block: 'start',
-      });
-      if (flash) {
-        setFlashPage(pageNumber);
-        setTimeout(() => setFlashPage(null), 1500);
-      }
-    },
-    [],
-  );
+  const scrollToPage = useCallback((pageNumber: number, smooth = true, flash = false) => {
+    const el = pageRefs.current[pageNumber];
+    if (!el || !scrollViewportRef.current) return;
+    el.scrollIntoView?.({
+      behavior: smooth ? 'smooth' : 'auto',
+      block: 'start',
+    });
+    if (flash) {
+      setFlashPage(pageNumber);
+      setTimeout(() => setFlashPage(null), 1500);
+    }
+  }, []);
 
   // Initial page scroll & flash
   useEffect(() => {
