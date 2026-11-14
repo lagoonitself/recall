@@ -1,1 +1,27 @@
-{"name":"multimodal-foundation","private":true,"workspaces":["client","server","shared"],"scripts":{"dev":"npm run build -w @app/shared && concurrently -k \"npm run dev -w @app/shared\" \"npm run dev -w @app/server\" \"npm run dev -w @app/client\"","build":"npm run build -w @app/shared && npm run build -w @app/server && npm run build -w @app/client","typecheck":"npm run build -w @app/shared && npm run typecheck --workspaces --if-present","test":"npm run build -w @app/shared && npm run test --workspaces --if-present","lint":"eslint ."},"devDependencies":{"@eslint/js":"^9.39.0","concurrently":"^9.2.1","eslint":"^9.39.0","typescript":"^5.9.3","typescript-eslint":"^8.46.0"}}
+{
+  "name": "recall",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "npm run build -w @app/shared && concurrently -k \"npm run dev -w @app/shared\" \"npm run dev -w @app/server\" \"npm run dev -w @app/client\"",
+    "build": "npm run build -w @app/shared && npm run build -w @app/server && npm run build -w @app/client",
+    "typecheck": "npm run build -w @app/shared && npm run typecheck --workspaces --if-present",
+    "test": "npm run build -w @app/shared && npm run test --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "concurrently": "^9.2.1",
+    "eslint": "^9.39.0",
+    "prettier": "^3.10.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.0"
+  },
+  "type": "module"
+}

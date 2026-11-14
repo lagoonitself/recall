@@ -23,6 +23,7 @@ Append-only. Newest at the bottom. Each entry: date, decision, why, who decided.
 | D17 | 2026-11-14 | **Replaces D7.** No owners are assigned in the docs. The user decides which agent works on each part when it starts. Rule kept: a PR is reviewed by an agent other than its author. | User did not ask for owner assignments. | User |
 
 | D18 | 2026-11-14 | Use camelCase REST objects and `{event, data}` SSE envelopes; define initial REST response shapes from the data model where ?8 omits them. Use built `@app/shared` exports with a TypeScript watch in dev. | Gives both workspaces an executable shared contract; downstream implementation should review unspecified details before relying on them. | GPT-6.1 Terra (Codex) |
+| D19 | 2026-11-14 | Add Google sign-in next to email/password. Browser uses Google Identity Services to get an ID token; `POST /api/auth/google` verifies it with `google-auth-library` (`aud` = `GOOGLE_CLIENT_ID`, `email_verified`) and issues our own JWT. `users.password_hash` becomes nullable; new `google_sub`, `avatar_url`. Accounts link by verified email. Built in P1 (server) and P8 (button). | User asked for Google login. ID-token flow needs no client secret and no redirect handling, and keeps one JWT session model. | User / Claude |
 
 ## Pending
 

@@ -334,8 +334,10 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE users (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email         text UNIQUE NOT NULL,
-  password_hash text NOT NULL,
+  password_hash text,                 -- NULL for Google-only accounts
+  google_sub    text UNIQUE,          -- Google account id ('sub' claim)
   name          text,
+  avatar_url    text,
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 
@@ -464,6 +466,8 @@ All routes except auth and health need `Authorization: Bearer <jwt>`. All bodies
 | POST | `/api/auth/register` | Create account (bcrypt hash) |
 | POST | `/api/auth/login` | Returns JWT |
 | GET | `/api/auth/me` | Current user |
+| GET | `/api/auth/config` | Public auth config: `{ googleClientId }` (null when Google sign-in is off) |
+| POST | `/api/auth/google` | Body `{ credential }` = Google ID token from Google Identity Services. Server verifies signature, `aud` = `GOOGLE_CLIENT_ID`, `email_verified`. Finds user by `google_sub`, else links by verified email, else creates one. Returns our JWT. |
 | GET / POST | `/api/collections` | List / create |
 | PATCH / DELETE | `/api/collections/:id` | Rename / delete |
 | POST | `/api/files/upload-url` | Create file row, return signed R2 PUT URL |
