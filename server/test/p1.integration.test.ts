@@ -141,6 +141,10 @@ suite('P1 integration on TEST_DATABASE_URL', () => {
     expect((await request(app).post('/api/auth/google').send({ credential: 'invalid' })).status).toBe(401);
     const linked = await request(app).post('/api/auth/google').send({ credential: 'link' });
     expect(linked.body.user.id).toBe(userId);
+    // Pre-account-takeover guard: the password set before Google proved the address no longer works.
+    const oldPassword = await request(app).post('/api/auth/login').send({ email, password: 'password123' });
+    expect(oldPassword.status).toBe(401);
+    expect(oldPassword.body.error.message).toBe('Invalid email or password');
     const bySub = await request(app).post('/api/auth/google').send({ credential: 'other' });
     expect(bySub.body.user.id).toBe(userId);
     const disabled = createApp({ pool, jwtSecret: secret });

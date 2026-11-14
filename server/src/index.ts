@@ -22,6 +22,8 @@ export type AppOptions = {
 export function createApp(options: AppOptions = {}) {
   const app = express();
   app.disable('x-powered-by');
+  // Render and Vercel sit one proxy hop in front; without this every client shares the proxy IP in rate limits.
+  app.set('trust proxy', 1);
   app.use(cors({ origin: options.corsOrigin ?? false }));
   app.use(express.json({ limit: '1mb' }));
   app.use('/api', healthRouter);

@@ -44,6 +44,8 @@ export const CollectionSchema = z.object({
   name: z.string(),
   description: z.string().nullable(),
   createdAt: date,
+  /** Present on list responses. */
+  fileCount: z.number().int().nonnegative().optional(),
 });
 export type Collection = z.infer<typeof CollectionSchema>;
 export const CreateCollectionRequestSchema = z.object({

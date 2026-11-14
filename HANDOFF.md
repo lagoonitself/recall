@@ -2,7 +2,7 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by GPT-6.1 Terra (P1)
+Last updated: 2026-11-14 by Claude (P1 review)
 
 ---
 
@@ -19,9 +19,9 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 | P0 Foundation + contract | done | Terra / review Claude | part/p0-foundation | Docker build unverified (no daemon) |
 | P1 DB, auth, collections | in review | GPT-6.1 Terra | part/p1-db-auth | Includes Google sign-in (D19) |
 | P2 Storage + upload | not started | — | — | |
-| P3 Embedding client + spike | in progress | GPT-6.1 Terra | part/p3-embedding | |
+| P3 Embedding client + spike | done | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D21 |
 | P4 Ingestion worker | not started | — | — | |
-| P5 LLM provider | in progress | GPT-6.1 Terra | part/p5-llm-provider | Fake only; real adapter blocked on LLM choice |
+| P5 LLM provider | in progress | GPT-6.1 Terra | part/p5-llm-provider | Fake + interface first; then real adapters for gemini, openrouter, opencode (D20) |
 | P6 Retrieval | not started | — | — | |
 | P7 Agent + chat API | not started | — | — | |
 | P8 FE library | in progress | GPT-6.1 Terra | part/p8-fe-library | Includes Google sign-in button (D19) |
@@ -32,19 +32,20 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 ## Waiting on the user
 
-- [ ] Choose the LLM (see Pending in DECISIONS.md).
 - [ ] Check Gemini key limits for `gemini-embedding-2` in AI Studio.
 - [ ] Create a Google OAuth **Web client ID** (Google Cloud Console → APIs & Services → Credentials). Authorized JavaScript origins: `http://localhost:5173` and the Vercel URL. Then set `GOOGLE_CLIENT_ID`.
 - [ ] Create accounts / keys when P0–P3 need them: Gemini, Neon, Cloudflare (R2 + Workers), Render, Vercel, LLM provider. Put them in `server/.env` yourself; agents never ask for keys in chat.
 
 ## Next steps
 
-1. Claude reviews P1; lanes P3, P5, P8 continue. Claude reviews each PR.
+1. Lanes running: P8; P5 in review. P2 and P6 start after P1 merges.
 2. Then P2 after P1, P6 after P3, P9 after P8, P4 when P2+P3+P5 are in `main`.
 
 ## Known problems
 
 Docker Desktop Linux engine was unavailable during P0 verification. The install reports three development dependency vulnerabilities; `npm audit --omit=dev` reports zero.
+
+P3 did not establish actual maximum fully processed duration/pages: over-limit requests returned vectors without proving completeness. Google documents that video audio is not processed; P4 must ingest it separately. Dependency install reports three vulnerabilities (one moderate, two critical); audit before deployment.
 
 ---
 
@@ -57,6 +58,11 @@ Newest at the top. One entry per working session. Keep each to a few lines: what
 - Typecheck, tests, lint, and build pass. Claude review is next. Integration tests require TEST_DATABASE_URL and otherwise skip.
 - Outside P1's listed scope: app router wiring, workspace package scripts/dependencies, integration tests, and this handoff. The shared contract is unchanged; collection list includes the brief's fileCount as an extra field.
 - Migration SQL is not copied into the existing production Docker runtime image; run migrations from the source checkout until deployment addresses this. npm install reported three dependency vulnerabilities; Docker remains unverified.
+
+### 2026-11-14 · GPT-6.1 Terra · P3 embedding
+- Implemented SDK client, request throttling, retries, synthetic live spike and mocked tests; all four requested checks passed. See D21 for measurements and unresolved truncation limits.
+- Outside the narrow P3 file scope: dependency manifests/lock, `server/test/embed.test.ts`, `server/.env.example`, architecture, decisions and handoff were necessary for installation, validation and required documentation. No `shared/` changes.
+- Claude should review; P4 must handle video audio separately and investigate semantic boundaries before relying on the documented maxima.
 
 ### 2026-11-14 · Claude · P0 review + lane start
 - Finished the P0 review: config fix for real `.env`, malformed JSON → 400, query/param validation, no R2 keys in the contract, min password 8. Prettier added.

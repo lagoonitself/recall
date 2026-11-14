@@ -29,6 +29,7 @@ const publicUser = (row: UserRow) => ({
   createdAt: row.created_at.toISOString(),
 });
 const digest = (password: string) => createHash('sha256').update(password).digest('base64');
+const DUMMY_HASH = bcrypt.hashSync('recall-timing-equaliser', 12);
 const invalid = () => new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
 const registration = RegisterRequestSchema.extend({ email: z.string().trim().email() });
 const login = LoginRequestSchema.extend({ email: z.string().trim().email() });
@@ -63,8 +64,9 @@ export function authRouter(
     const { email, password } = login.parse(req.body);
     const result = await pool().query('SELECT * FROM users WHERE email = $1', [email.trim().toLowerCase()]);
     const user: UserRow | undefined = result.rows[0];
-    if (!user?.password_hash || !(await bcrypt.compare(digest(password), user.password_hash)))
-      throw invalid();
+    // Always run bcrypt so a missing account takes as long as a wrong password (no email enumeration by timing).
+    const matches = await bcrypt.compare(digest(password), user?.password_hash ?? DUMMY_HASH);
+    if (!user?.password_hash || !matches) throw invalid();
     res.json(respond(user));
   });
   router.post('/google', limiter, validateBody(GoogleLoginRequestSchema), async (req, res) => {
@@ -78,11 +80,14 @@ export function authRouter(
     if (!payload?.sub || !payload.email || payload.email_verified !== true)
       throw new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid Google credential');
     const email = payload.email.trim().toLowerCase();
+    // Linking to an existing email account drops its password: password sign-up never proved ownership of
+    // the address, so a password set by whoever registered first must not survive Google's proof (pre-account
+    // takeover). The owner keeps access through Google.
     const existing = await pool().query('SELECT * FROM users WHERE google_sub = $1', [payload.sub]);
     if (existing.rowCount) return res.json(respond(existing.rows[0]));
     try {
       const result = await pool().query(
-        'INSERT INTO users(email, google_sub, name, avatar_url) VALUES ($1,$2,$3,$4) ON CONFLICT (email) DO UPDATE SET google_sub = EXCLUDED.google_sub WHERE users.google_sub IS NULL OR users.google_sub = EXCLUDED.google_sub RETURNING *',
+        'INSERT INTO users(email, google_sub, name, avatar_url) VALUES ($1,$2,$3,$4) ON CONFLICT (email) DO UPDATE SET google_sub = EXCLUDED.google_sub, password_hash = NULL, avatar_url = coalesce(users.avatar_url, EXCLUDED.avatar_url), name = coalesce(users.name, EXCLUDED.name) WHERE users.google_sub IS NULL OR users.google_sub = EXCLUDED.google_sub RETURNING *',
         [email, payload.sub, payload.name ?? null, payload.picture ?? null],
       );
       if (!result.rowCount) throw new HttpError(409, 'CONFLICT', 'Account already linked');
