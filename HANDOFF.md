@@ -20,7 +20,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 | P1 DB, auth, collections | done | GPT-6.1 Terra | part/p1-db-auth | Includes Google sign-in (D19) |
 | P2 Storage + upload | done | GPT-6.1 Terra / review Claude | part/p2-storage-upload | Signed-PUT replay accepted as risk (D23) |
 | P3 Embedding client + spike | done | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D21 |
-| P4 Ingestion worker | not started | — | — | |
+| P4 Ingestion worker | in review | GPT-6.1 Terra | part/p4-ingestion | Draft only: splitters started; worker and pipeline not implemented |
 | P5 LLM provider | in progress | GPT-6.1 Terra | part/p5-llm-provider | Interface + fake merged; real adapters gemini/openrouter/opencode next (D20) |
 | P6 Retrieval | in progress | GPT-6.1 Terra | part/p6-retrieval | |
 | P7 Agent + chat API | not started | — | — | |
@@ -56,6 +56,11 @@ P3 did not establish actual maximum fully processed duration/pages: over-limit r
 ## Session log
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
+
+### 2026-11-14 · GPT-6.1 Terra · P4 draft
+- Added text/DOCX, PDF, image, audio and video splitting primitives with generated-fixture tests; not wired to a worker. Changes outside P4 scope: dependency manifests/lockfile and this handoff.
+- Remaining: job claims, stale-lock ownership/heartbeat, retries and shutdown; R2 pipeline, embedding, safe batched describe including video speech, idempotent chunk writes, progress and startup; job-state and per-modality live integration/reclaim tests. Review text sizing and media edge cases before use.
+- `npm run typecheck`, `npm test`, `npm run lint`, `npm run build`, and `npm run format:check` passed. Existing P1/P2 integration tests used the test database and R2. P4 integration was not run. ffmpeg, ffprobe and pdftoppm were already on PATH. npm reported three vulnerabilities (one moderate, two critical).
 
 ### 2026-11-14 · GPT-6.1 Terra · P2 implementation
 - Implemented R2 helpers, upload/complete/list/get/delete and chunk media, quota accounting, migration 003, and live test-bucket round trip. No shared contract changes.
