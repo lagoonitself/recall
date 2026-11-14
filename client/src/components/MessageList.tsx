@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import type { Message, Source, AgentStep } from '@app/shared';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { ActivityLog, type ActivityStepData } from './ActivityLog';
 import { SourceCard } from './SourceCard';
 
@@ -24,14 +25,18 @@ function useMarkdownWithCitations(content: string) {
   return useMemo(() => {
     if (!content) return '';
     try {
-      const rawHtml = marked.parse(content, { async: false }) as string;
+      // Answers and user text are untrusted (an uploaded file can steer the model): sanitize before rendering.
+      const rawHtml = DOMPurify.sanitize(marked.parse(content, { async: false }) as string, {
+        FORBID_TAGS: ['style', 'form', 'input', 'button', 'iframe'],
+        FORBID_ATTR: ['style'],
+      });
       // Replace [S1], [S2], [S#] with clickable citation button elements
       return rawHtml.replace(
         /\[(S\d+)\]/g,
         '<button type="button" class="citation-chip" data-sid="$1" aria-label="View cited source $1">[$1]</button>',
       );
     } catch {
-      return content;
+      return DOMPurify.sanitize(content, { ALLOWED_TAGS: [] });
     }
   }, [content]);
 }

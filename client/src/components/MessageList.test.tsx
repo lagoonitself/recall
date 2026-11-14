@@ -109,3 +109,28 @@ describe('MessageList', () => {
     expect(handleRetry).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('MessageList sanitizing', () => {
+  it('strips script and event-handler HTML from answers', async () => {
+    const { render } = await import('@testing-library/react');
+    const { MessageList } = await import('./MessageList');
+    const { container } = render(
+      <MessageList
+        messages={[
+          {
+            id: '00000000-0000-4000-8000-000000000009',
+            conversationId: '00000000-0000-4000-8000-000000000008',
+            role: 'assistant',
+            content: 'Hi <img src=x onerror="alert(1)"><script>alert(2)</script> [S1]',
+            attachments: [],
+            sources: [],
+            steps: [],
+            createdAt: new Date().toISOString(),
+          },
+        ]}
+      />,
+    );
+    expect(container.innerHTML).not.toMatch(/onerror|<script/);
+    expect(container.querySelector('.citation-chip')).not.toBeNull();
+  });
+});
