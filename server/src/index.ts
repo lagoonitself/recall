@@ -11,9 +11,12 @@ import { authRouter, type GoogleVerifier } from './routes/auth.js';
 import { collectionsRouter } from './routes/collections.js';
 import { filesRouter, type FileLimits } from './routes/files.js';
 import { chunksRouter } from './routes/chunks.js';
+import { conversationsRouter, type ChatDeps } from './routes/conversations.js';
+import { searchLibrary } from './retrieval/search.js';
+import { probeDuration } from './ingest/splitters/media.js';
 import { createR2, type R2 } from './lib/r2.js';
 import { embedMedia, embedText } from './lib/embed.js';
-import { getDescribeProvider } from './agent/provider/index.js';
+import { getDescribeProvider, getProvider } from './agent/provider/index.js';
 import { startWorker } from './ingest/worker.js';
 
 export type AppOptions = {
@@ -24,6 +27,7 @@ export type AppOptions = {
   googleVerifier?: GoogleVerifier;
   storage?: R2;
   fileLimits?: FileLimits;
+  chat?: Partial<ChatDeps>;
 };
 
 /** Builds the Express app. Never connects to the DB here, so tests can build it without env. */
@@ -51,6 +55,17 @@ export function createApp(options: AppOptions = {}) {
     ),
   );
   app.use('/api/chunks', chunksRouter(pool, secret, getStorage));
+  app.use(
+    '/api/conversations',
+    conversationsRouter(pool, secret, getStorage, {
+      provider: () => getProvider(),
+      model: process.env.AGENT_MODEL || 'fake',
+      search: searchLibrary,
+      probeDuration,
+      chatPerMin: Number(process.env.CHAT_PER_MIN || 6),
+      ...options.chat,
+    }),
+  );
   app.use('/api', notFoundHandler);
   app.use(errorHandler);
   return app;
@@ -67,6 +82,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       userQuotaMb: config.USER_QUOTA_MB,
       uploadsPerDay: config.UPLOADS_PER_DAY,
     },
+    chat: { model: config.AGENT_MODEL ?? 'fake', chatPerMin: config.CHAT_PER_MIN },
   });
   const server = app.listen(config.PORT, () => {
     console.log(`Recall API listening on ${config.PORT}`);
