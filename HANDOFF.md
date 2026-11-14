@@ -18,7 +18,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 |---|---|---|---|---|
 | P0 Foundation + contract | done | Terra / review Claude | part/p0-foundation | Docker build unverified (no daemon) |
 | P1 DB, auth, collections | done | GPT-6.1 Terra | part/p1-db-auth | Includes Google sign-in (D19) |
-| P2 Storage + upload | in progress | GPT-6.1 Terra | part/p2-storage-upload | |
+| P2 Storage + upload | done | GPT-6.1 Terra / review Claude | part/p2-storage-upload | Signed-PUT replay accepted as risk (D23) |
 | P3 Embedding client + spike | done | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D21 |
 | P4 Ingestion worker | not started | — | — | |
 | P5 LLM provider | in progress | GPT-6.1 Terra | part/p5-llm-provider | Interface + fake merged; real adapters gemini/openrouter/opencode next (D20) |
@@ -38,12 +38,14 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 ## Next steps
 
-1. Running: P2, P8, P5 real adapters. Claude reviews P6 and the other PRs.
+1. Running: P8, P5 real adapters. Claude reviews P6 and the other PRs.
 2. Next: P9 after P8, P4 when P2 is in `main`, P7 when P2 + P6 are in `main`.
 
 ## Known problems
 
 P6 needs ffmpeg for audio attachments and pgvector 0.8+ for iterative scans. The small test fixture favored the scope index; HNSW use was confirmed with planner overrides, not production-size benchmarks.
+
+P2 signed PUT URLs remain usable until expiry: a client can overwrite the verified original after completion or recreate it after deletion. The existing collection DELETE cascades file rows without deleting R2 objects. Resolve both lifecycle issues before production/merge; P2's file DELETE alone cannot prevent them. Integration tests use the test database and real R2, cleaning their test prefixes.
 
 Docker Desktop Linux engine was unavailable during P0 verification. The install reports three development dependency vulnerabilities; `npm audit --omit=dev` reports zero.
 
@@ -60,8 +62,14 @@ Newest at the top. One entry per working session. Keep each to a few lines: what
 ### 2026-11-14 - GPT-6.1 Terra - P6 implementation
 - Added tenant-scoped vector and keyword retrieval, reciprocal rank fusion, filters, attachment embeddings and ffmpeg audio splitting. No shared contract or migration changes.
 - Test fixtures use only TEST_DATABASE_URL and directly insert users. Integration tests and HNSW EXPLAIN ANALYZE pass; the HNSW plan uses planner overrides on a small fixture.
+- After merging current main, full npm test twice hit existing P1 integration timeouts during concurrent remote tests; P6 and P2 tests passed. Other requested checks passed.
 - P7 must translate internal search results and thumbnail keys into the existing Source wire shape; storage keys must never reach the client. No live embedding calls were made.
 - Outside P6 scope: this required handoff update. Claude review is next.
+
+### 2026-11-14 · GPT-6.1 Terra · P2 implementation
+- Implemented R2 helpers, upload/complete/list/get/delete and chunk media, quota accounting, migration 003, and live test-bucket round trip. No shared contract changes.
+- Typecheck, test, lint, build and format:check passed. Tests insert users directly and mint tokens, compatible with D22. Migration 003 was applied only to TEST_DATABASE_URL, not production.
+- Outside P2 scope: router wiring, dependency manifests/lockfile, migration, integration tests and handoff. Claude should address the two lifecycle risks above before merge. npm install reported three vulnerabilities (one moderate, two critical).
 
 ### 2026-11-14 · GPT-6.1 Terra · P5 provider layer
 - Added provider types, conservative capability fallback, scriptable fake, environment factory, reusable contract suite and SSE fixture. No changes to shared contracts; this handoff is outside the P5 code scope.
