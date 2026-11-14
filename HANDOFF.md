@@ -2,7 +2,7 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by Claude (P5 review)
+Last updated: 2026-11-14 by GPT-6.1 Terra (P5 adapters)
 
 ---
 
@@ -21,7 +21,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 | P2 Storage + upload | in progress | GPT-6.1 Terra | part/p2-storage-upload | |
 | P3 Embedding client + spike | done | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D21 |
 | P4 Ingestion worker | not started | — | — | |
-| P5 LLM provider | in progress | GPT-6.1 Terra | part/p5-llm-provider | Interface + fake merged; real adapters gemini/openrouter/opencode next (D20) |
+| P5 LLM provider | in review | GPT-6.1 Terra | part/p5b-llm-adapters | Draft: Gemini live passes; OpenRouter 402 and OpenCode free-usage limit block live contracts |
 | P6 Retrieval | in progress | GPT-6.1 Terra | part/p6-retrieval | |
 | P7 Agent + chat API | not started | — | — | |
 | P8 FE library | in progress | GPT-6.1 Terra | part/p8-fe-library | Includes Google sign-in button (D19) |
@@ -45,7 +45,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 Docker Desktop Linux engine was unavailable during P0 verification. The install reports three development dependency vulnerabilities; `npm audit --omit=dev` reports zero.
 
-P5 `npm install` reported 10 vulnerabilities (8 moderate, 2 critical); the real LLM adapter, live contract run, chunked tool-argument parsing, and model-specific capabilities remain blocked on the LLM choice.
+P5 `npm install` reported 10 vulnerabilities (8 moderate, 2 critical). Gemini live contract passed with `gemini-3.5-flash-lite`. OpenRouter returned HTTP 402; OpenCode returned its expected free-usage limit. Before merge, complete those live contracts and review adapter media serialization, stream edge cases, and process-wide concurrency: current limits are per provider instance.
 
 P3 did not establish actual maximum fully processed duration/pages: over-limit requests returned vectors without proving completeness. Google documents that video audio is not processed; P4 must ingest it separately. Dependency install reports three vulnerabilities (one moderate, two critical); audit before deployment.
 
@@ -54,6 +54,15 @@ P3 did not establish actual maximum fully processed duration/pages: over-limit r
 ## Session log
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
+
+### 2026-11-14 · GPT-6.1 Terra · P5 adapters
+- Implemented configuration, provider factories, Gemini and OpenAI-compatible adapters, model rows, mocked tests and opt-in live contracts. Config, env example, decisions and this handoff are outside the narrow P5 provider scope; shared contracts are unchanged.
+- `npm run typecheck`, `npm test` (44 passed, 1 live skipped), `npm run lint`, `npm run build`, and `npm run format:check` passed. Gemini live contract passed (3 tests); direct Gemini 2.5 returned 404 for new users, so the default is 3.5 Flash Lite.
+- OpenRouter live contract returned HTTP 402 for all three cases; OpenCode's first live case returned the expected free-usage error and the remaining cases were skipped to avoid repeated calls. Draft only: resolve live access and review per-instance concurrency and unverified media/stream edge cases before merging.
+
+### 2026-11-14 · GPT-6.1 Terra · P5 adapter setup
+- Created `part/p5b-llm-adapters`, copied the private server environment file, and ran `npm install` (10 reported vulnerabilities: 8 moderate, 2 critical). No adapter code was completed and no PR was opened.
+- OpenRouter's models endpoint listed `google/gemini-2.5-flash-lite` with image, file, audio, video and tool support; this is research, not a selected or live-tested default. Implement D20, mocked and live contracts, all checks, and review before merging.
 
 ### 2026-11-14 · GPT-6.1 Terra · P5 provider layer
 - Added provider types, conservative capability fallback, scriptable fake, environment factory, reusable contract suite and SSE fixture. No changes to shared contracts; this handoff is outside the P5 code scope.
