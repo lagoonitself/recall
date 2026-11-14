@@ -1,7 +1,7 @@
 # P8 · Frontend: auth, collections, upload
 
 ## Goal
-The app shell, login/register, the collections grid, and the collection page with drag-and-drop upload and live processing status.
+The app shell, Google sign-in, the collections grid, and the collection page with drag-and-drop upload and live processing status.
 
 ## Starts after
 P0 merged. Built against MSW mocks generated from `@app/shared` schemas; switched to the real API when P1/P2 are merged.
@@ -10,7 +10,7 @@ P0 merged. Built against MSW mocks generated from `@app/shared` schemas; switche
 - [ ] Design direction chosen and written at the top of `client/src/styles/README.md` (fonts, colours, spacing, motion). One direction, used everywhere.
 - [ ] App shell: nav, user menu, logout, protected routes, token in memory + `localStorage`, 401 → login.
 - [ ] `lib/api.ts`: typed fetch client using `@app/shared` schemas (parse every response), base URL `VITE_API_URL`, error shape handled.
-- [ ] `/login`, `/register` with validation messages.
+- [ ] `/login` with the Google sign-in button only (D22).
 - [ ] `/` collections grid: create, rename, delete (confirm), file counts, empty state.
 - [ ] `/collections/:id`: file list with type icon, size, status badge, progress bar (`pieces_done/pieces_total`), error text, delete; polls while any file is not `ready`/`failed`.
 - [ ] `UploadDropzone`: multiple files, type + size checks, video duration check (> 80 s refused with a clear message), HEIC → JPEG via `heic2any`, then upload-url → PUT with progress → complete.

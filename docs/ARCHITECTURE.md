@@ -23,7 +23,7 @@ Related docs: [PLAN.md](PLAN.md) (work split into parts), [DECISIONS.md](DECISIO
 | Layer | Choice | Notes |
 |---|---|---|
 | Frontend | React, Vite, React Router, Tailwind CSS, TypeScript, Fetch API | Streaming chat via `fetch` + `ReadableStream`. HEIC photos converted to JPEG in the browser (`heic2any`) before upload. |
-| Backend | Node.js, Express, TypeScript | JWT auth, bcrypt, Zod validation, Multer for chat attachments |
+| Backend | Node.js, Express, TypeScript | Google sign-in, JWT sessions, Zod validation, Multer for chat attachments |
 | Shared contract | `shared/` workspace package | Zod schemas + TS types for every API body and SSE event. Imported by client and server. |
 | Media processing | ffmpeg (video/audio), pdf-lib (split PDF pages), poppler-utils `pdftoppm` (render page thumbnails), sharp (images), mammoth (DOCX) | Runs in the backend container |
 | Embeddings | Gemini API, `gemini-embedding-2`, 1536 dimensions | **Mandatory.** Text, image, audio, video and PDF inputs |
@@ -45,7 +45,7 @@ flowchart LR
     end
 
     subgraph API["Backend (Express)"]
-        AUTH[Auth: JWT + bcrypt]
+        AUTH[Auth: Google ID token + JWT]
         ROUTES[REST routes + Zod]
         AGENT[Agent loop]
         TOOLS[Tools: search_library, open_sources, list_files]
@@ -123,9 +123,9 @@ The browser uploads straight to R2 with a short-lived signed URL, so large files
 
 ### 4.2 Splitting rules
 
-`gemini-embedding-2` takes one file per call, with limits of 8,192 text tokens, 6 PDF pages and 80 seconds of video with audio. The audio limit is measured in part P3 (sources disagree), so the audio piece length is a setting (`AUDIO_PIECE_SEC`, default 150 until measured). Every file is split so each piece fits, and each piece keeps its location so citations can point to it.
+`gemini-embedding-2` takes one file per call. Google's documentation lists 8,192 input tokens, 6 PDF pages, 180 seconds of audio and 120 seconds of video; video audio tracks are not processed. P3's over-limit requests returned vectors, but did not establish whether content was truncated. Keep `AUDIO_PIECE_SEC` at the conservative default of 150 and retain the product's 80-second video cap. Every file is split so each piece fits, and each piece keeps its location so citations can point to it. See D21 for observations and the need to process video audio separately.
 
-**Video is capped at 80 seconds**, the embedding limit, so a video is never split. The browser reads the duration before uploading and refuses longer videos, and the server checks again with `ffprobe` and rejects anything over 80 s. The same cap applies to videos attached to chat messages. **Audio has no length cap.** Long audio is split into `AUDIO_PIECE_SEC` pieces.
+**Video is capped at 80 seconds** as a conservative product limit, so a video is never split. The browser reads the duration before uploading and refuses longer videos, and the server checks again with `ffprobe` and rejects anything over 80 s. The same cap applies to videos attached to chat messages. **Audio has no length cap.** Long audio is split into `AUDIO_PIECE_SEC` pieces.
 
 | Input | Accepted formats | Piece | Normalised to | Location kept |
 |---|---|---|---|---|
@@ -334,7 +334,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE users (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email         text UNIQUE NOT NULL,
-  password_hash text,                 -- NULL for Google-only accounts
+  password_hash text,                 -- unused since D22 (Google only); kept NULL
   google_sub    text UNIQUE,          -- Google account id ('sub' claim)
   name          text,
   avatar_url    text,
@@ -463,8 +463,6 @@ All routes except auth and health need `Authorization: Bearer <jwt>`. All bodies
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | `204 No Content`, touches nothing (keep-alive target) |
-| POST | `/api/auth/register` | Create account (bcrypt hash) |
-| POST | `/api/auth/login` | Returns JWT |
 | GET | `/api/auth/me` | Current user |
 | GET | `/api/auth/config` | Public auth config: `{ googleClientId }` (null when Google sign-in is off) |
 | POST | `/api/auth/google` | Body `{ credential }` = Google ID token from Google Identity Services. Server verifies signature, `aud` = `GOOGLE_CLIENT_ID`, `email_verified`. Finds user by `google_sub`, else links by verified email, else creates one. Returns our JWT. |
@@ -509,7 +507,7 @@ Streaming rules:
 
 | Route | Screen |
 |---|---|
-| `/login`, `/register` | Auth |
+| `/login` | Google sign-in |
 | `/` | Collections grid with file counts |
 | `/collections/:id` | Files in a collection: drag-and-drop upload, live processing status, preview |
 | `/chat`, `/chat/:conversationId` | Chat: collection picker, message box with photo / voice recording / video attachments, streamed answer, activity log, source cards |
@@ -524,7 +522,7 @@ Main components:
 
 ## 10. Security
 
-- Passwords hashed with bcrypt (cost 12). JWTs expire in 7 days.
+- Sign-in is Google only (D22); the server verifies Google's ID token and issues its own JWT, which expires in 7 days. New accounts have no password; a legacy hash from before D22 is cleared when its email is linked to Google.
 - Every query is scoped by `user_id`. Signed R2 URLs are issued only after an ownership check, and expire in 10 minutes.
 - Zod validates every request. Uploads are checked by MIME type and size (50 MB per file). The signed PUT URL includes `Content-Length` and `Content-Type`, and `/complete` checks the stored object with `HEAD` before queuing it.
 - Per-user caps (storage quota, uploads per day, chat messages per minute) protect the shared API keys and the 10 GB R2 bucket.
@@ -628,7 +626,7 @@ All in `server/.env` (git-ignored) locally and in Render's env settings in produ
 | `AGENT_MODEL`, `DESCRIBE_MODEL` | TBD | Model ids |
 | `LLM_CONCURRENCY`, `DESCRIBE_BATCH` | `2`, `4` | Throttle and batching |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | | Storage |
-| `AUDIO_PIECE_SEC` | `150` | Set from the P3 measurement |
+| `AUDIO_PIECE_SEC` | `150` | Below the documented 180-second limit; P3 did not establish a hard boundary |
 | `WORKER_CONCURRENCY` | `1` | Jobs at once |
 | `MAX_FILE_MB`, `USER_QUOTA_MB`, `UPLOADS_PER_DAY`, `CHAT_PER_MIN` | `50`, `500`, `100`, `6` | Per-user limits |
 

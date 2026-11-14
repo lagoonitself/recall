@@ -15,7 +15,8 @@ Everything live on free tiers: frontend on Vercel, backend on Render (Docker), N
 - [ ] R2: bucket private; CORS allows `PUT`, `GET` from the Vercel origin and `localhost` dev origin only.
 - [ ] `keepalive/`: Worker with cron `*/10 * * * *` that GETs `/api/health`; deployed with the `cf` CLI; logs show 204s.
 - [ ] Backend `CORS_ORIGIN` = Vercel URL.
-- [ ] Smoke test on the live URL: register → create collection → upload PDF → ready → ask a question → streamed cited answer.
+- [ ] Google OAuth client `recall`: add the Vercel URL to Authorized JavaScript origins; `GOOGLE_CLIENT_ID` set on Render.
+- [ ] Smoke test on the live URL: sign in with Google → create collection → upload PDF → ready → ask a question → streamed cited answer.
 - [ ] Memory check: ingest the 80 s video on Render without OOM (check Render metrics).
 - [ ] Deployment steps written into README (P12 uses them); HANDOFF.md updated with live URLs.
 
