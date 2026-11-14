@@ -2,13 +2,13 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by Claude (P8 review)
+Last updated: 2026-11-14 by Antigravity (P9 FE chat implementation)
 
 ---
 
 ## Current state
 
-P0 is merged into `main` (built by Terra, reviewed and fixed by Claude). Google sign-in added to the contract (D19). Four lanes start now: P1, P3, P5, P8, each a GPT-6.1 Terra agent in its own worktree.
+P0 is merged into `main` (built by Terra, reviewed and fixed by Claude). Google sign-in added to the contract (D19). Four lanes start now: P1, P3, P5, P8, each a GPT-6.1 Terra agent in its own worktree. P9 frontend chat implementation complete and in review.
 
 ## Part status
 
@@ -25,7 +25,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 | P6 Retrieval | done | GPT-6.1 Terra / review Claude | part/p6-retrieval | Hybrid vector + full-text with RRF; HNSW iterative scan |
 | P7 Agent + chat API | not started | — | — | |
 | P8 FE library | done | GPT-6.1 Terra / review Claude | part/p8-fe-library | Google-only sign-in; MSW mocks in dev; real Google popup still to be clicked through by the user |
-| P9 FE chat | not started | — | — | |
+| P9 FE chat | in review | Antigravity | part/p9-fe-chat | Full chat screen with SSE parser, live ActivityLog, viewers, composer with voice note, and MSW stream mocks |
 | P10 Deploy + ops | not started | — | — | Needs Neon, R2, Render, Vercel, Cloudflare accounts |
 | P11 Review + QA | not started | — | — | |
 | P12 Docs + demo | not started | — | — | |
@@ -60,6 +60,18 @@ P8 file previews are not implemented: the shared file response exposes no chunk 
 ## Session log
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
+
+### 2026-11-14 · Antigravity · P9 FE chat implementation
+- Implemented Part P9 frontend chat: `client/src/pages/Chat.tsx`, `client/src/components/{Composer,ActivityLog,SourceCard,MessageList}.tsx`, viewers (`PdfViewer`, `MediaViewer`, `ImageViewer`, `TextViewer`), `client/src/lib/sse.ts`, fixture `chat-demo.sse`, conversation MSW handlers, and route/nav wiring in `main.tsx` and `AppShell.tsx`.
+- SSE parser (`client/src/lib/sse.ts`) handles split chunks across arbitrary byte boundaries, multi-line data joined by `\n`, `: ping` comment lines/heartbeats, cancellation via AbortSignal, and schema validation with `@app/shared` `SseEventSchema`.
+- Composer supports text with auto-resizing, up to 3 attachments (≤ 20 MB total), photo picker, file picker, MediaRecorder voice notes with live timer (`00:05`) and cancel/save controls (supports Chrome `audio/webm` and Safari `audio/mp4`), HEIC to JPEG conversion (`heic2any`), video duration checks (≤ 80 s), and active stream abort button.
+- ActivityLog collapsible summary displays live step counts, total duration in seconds, live pulsing indicator, and step breakdown (reasoning delta, tool call compact args, tool results, and opened sources).
+- MessageList renders markdown with citation chips `[S1]`, `[S2]` that navigate and expand the corresponding `SourceCard`. Non-streaming messages are memoized (`React.memo`) so only the streaming message re-renders per token. Polite aria-live announcements for screen readers.
+- In-place source viewers: PDF page viewer (pdfjs-dist canvas with thumbnail first), audio/video players starting at `location.startSec` with quick-seek badges and automatic URL renewal, image lightbox modal with keyboard Esc/backdrop close, and text passage viewer with `<mark>` highlight.
+- MSW mock handlers stream the `chat-demo.sse` fixture with 60ms chunk delays in development.
+- Vitest tests: 30 tests in 7 test files pass (`sse.test.ts`, `ActivityLog.test.tsx`, `SourceCard.test.tsx`, `Composer.test.tsx`, `MessageList.test.tsx`, `GoogleSignIn.test.tsx`, `UploadDropzone.test.tsx`).
+- Root quality gates passed: `npm run typecheck`, `npm test -w @app/client`, `npm run lint`, `npm run format:check`, `npm run build -w @app/shared`, and `npm run build -w @app/client`.
+- Note for P7 (Agent + chat API): Backend should stream events matching `SseEventSchema` with `text/event-stream` and accept multipart FormData `text` and `files` on `POST /api/conversations/:id/messages`. Source media should be accessible via `GET /api/chunks/:chunkId/media`.
 
 ### 2026-11-14 · Claude · P4 completion
 - Terra's agent stopped after the splitters. Added the worker (claim with SKIP LOCKED, 15-min stale-lock reclaim, 3 attempts with 30 s/2 min/8 min backoff, PermanentError for unreadable files, SIGTERM requeue), the pipeline (stream original to /tmp, split, store pieces + thumbs in R2, embed, describe with §4.3 fallbacks, idempotent chunk insert, progress), and tests (all five modalities on the test DB + R2, reclaim without duplicates, retry/permanent failure).
