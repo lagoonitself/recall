@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import fs from 'fs';
 import path from 'path';
-import { ActivityLog, type ActivityStepData } from './ActivityLog';
+import { ActivityLog, deriveActivitySummary, type ActivityStepData } from './ActivityLog';
 import { parseSseStream } from '../lib/sse';
 import type { SseEvent } from '@app/shared';
 
@@ -55,7 +55,7 @@ async function eventsToSteps(events: SseEvent[]): Promise<ActivityStepData[]> {
 }
 
 describe('ActivityLog', () => {
-  it('renders all steps correctly from the chat-demo.sse fixture', async () => {
+  it('renders summary line when collapsed and human sentences (not JSON) when expanded', async () => {
     const fixturePath = path.resolve(__dirname, '../mocks/fixtures/chat-demo.sse');
     const content = fs.readFileSync(fixturePath, 'utf-8');
 
@@ -65,26 +65,58 @@ describe('ActivityLog', () => {
     }
 
     const steps = await eventsToSteps(events);
-
     expect(steps).toHaveLength(4);
 
-    render(<ActivityLog steps={steps} />);
+    const { container } = render(<ActivityLog steps={steps} />);
 
-    // Header checks
-    expect(screen.getByText('Agent activity')).toBeDefined();
-    expect(screen.getByText(/\(4 steps,/)).toBeDefined();
+    // Collapsed header check - human summary derived from steps
+    const summaryText = deriveActivitySummary(steps);
+    expect(screen.getByText(summaryText)).toBeDefined();
+    expect(summaryText).toMatch(/Searched 1 time/);
+    expect(summaryText).toMatch(/read 2 sources/);
 
-    // Step 0: reasoning
-    expect(screen.getByText(/The user is asking about the engine warning light/)).toBeDefined();
+    // Expand the activity log
+    const headerBtn = screen.getByRole('button', { name: new RegExp(summaryText, 'i') });
+    fireEvent.click(headerBtn);
 
-    // Step 1: tool call search_library
-    expect(screen.getByText('search_library')).toBeDefined();
-    expect(screen.getByText(/"query": "engine coolant temperature warning light"/)).toBeDefined();
+    // Step 0: Reasoning
+    expect(screen.getByText('Reasoned')).toBeDefined();
+    expect(
+      screen.getAllByText(/The user is asking about the engine warning light/).length,
+    ).toBeGreaterThan(0);
 
-    // Step 2: tool result
-    expect(screen.getByText(/Found 2 matching pieces across manuals and service records/)).toBeDefined();
+    // Step 1: Human sentence for search_library (never raw JSON)
+    expect(
+      screen.getByText('Searched for "engine coolant temperature warning light"'),
+    ).toBeDefined();
 
-    // Step 3: sources opened
-    expect(screen.getByText(/Opened 2 sources: owner-manual.pdf/)).toBeDefined();
+    // Step 2: Tool result with summary
+    expect(
+      screen.getAllByText(/Found 2 matching pieces across manuals and service records/).length,
+    ).toBeGreaterThan(0);
+
+    // Step 3: Sources opened
+    expect(screen.getAllByText(/Opened 2 sources: owner-manual.pdf/).length).toBeGreaterThan(0);
+
+    // Raw JSON is enclosed in collapsed details disclosure
+    const rawDetails = container.querySelectorAll('.activity-raw-disclosure');
+    expect(rawDetails.length).toBeGreaterThan(0);
+  });
+
+  it('renders live status with aria-live while streaming', () => {
+    const liveSteps: ActivityStepData[] = [
+      {
+        seq: 0,
+        kind: 'tool_call',
+        toolName: 'search_library',
+        toolArgs: { query: 'yenepoya' },
+      },
+    ];
+
+    render(<ActivityLog steps={liveSteps} isStreaming={true} />);
+
+    expect(screen.getByText('Searching your library for "yenepoya"…')).toBeDefined();
+    const liveIndicator = document.querySelector('[aria-live="polite"]');
+    expect(liveIndicator).not.toBeNull();
   });
 });

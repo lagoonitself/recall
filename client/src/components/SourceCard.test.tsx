@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
-import { SourceCard } from './SourceCard';
+import { SourceCard, SourcesSection } from './SourceCard';
 import type { Source } from '@app/shared';
 
 afterEach(() => {
@@ -26,12 +26,12 @@ describe('SourceCard', () => {
     thumbUrl: null,
   };
 
-  it('renders source header with sid, filename, and location', () => {
+  it('renders compact source chip with number, filename, and location', () => {
     render(<SourceCard source={mockPdfSource} />);
 
-    expect(screen.getByText('S1')).toBeDefined();
+    expect(screen.getByText('1')).toBeDefined();
     expect(screen.getByText('vehicle-manual.pdf')).toBeDefined();
-    expect(screen.getByText('· page 42')).toBeDefined();
+    expect(screen.getByText('· p. 42')).toBeDefined();
   });
 
   it('expands when clicked and calls onOpen', () => {
@@ -46,6 +46,7 @@ describe('SourceCard', () => {
     expect(toggleBtn.getAttribute('aria-expanded')).toBe('true');
     expect(handleOpen).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Page 42')).toBeDefined();
+    expect(screen.getByText('Open full document')).toBeDefined();
   });
 
   it('auto-expands when isActive is true', () => {
@@ -53,5 +54,32 @@ describe('SourceCard', () => {
 
     expect(screen.getByRole('article').className).toContain('active-highlight');
     expect(screen.getByText(/Starts at 0:24/)).toBeDefined();
+  });
+
+  it('SourcesSection renders heading row and expands one detail panel below', () => {
+    const handleSelect = vi.fn();
+    const { rerender } = render(
+      <SourcesSection
+        sources={[mockPdfSource, mockVideoSource]}
+        activeSourceSid={null}
+        onSelectSource={handleSelect}
+      />,
+    );
+
+    expect(screen.getByText('Sources · 2')).toBeDefined();
+    expect(screen.getByText('vehicle-manual.pdf')).toBeDefined();
+    expect(screen.getByText('service-clip.mp4')).toBeDefined();
+
+    // Re-render with active source
+    rerender(
+      <SourcesSection
+        sources={[mockPdfSource, mockVideoSource]}
+        activeSourceSid="S1"
+        onSelectSource={handleSelect}
+      />,
+    );
+
+    expect(screen.getByText('Page 42')).toBeDefined();
+    expect(screen.getByText('Open full document')).toBeDefined();
   });
 });
