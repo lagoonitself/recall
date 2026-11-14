@@ -23,7 +23,14 @@ export type User = z.infer<typeof UserSchema>;
 /** Email + password sign-in (D28). The server lower-cases the email. */
 export const RegisterRequestSchema = z.object({
   email: z.string().trim().email('Enter a valid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters').max(200),
+  // bcrypt reads at most 72 bytes; longer passwords would be silently truncated.
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .refine(
+      (value) => new TextEncoder().encode(value).length <= 72,
+      'Password must be 72 characters or fewer',
+    ),
   name: z.string().trim().max(200).optional(),
 });
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;

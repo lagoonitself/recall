@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+import { scrypt, timingSafeEqual } from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import { promisify } from 'node:util';
 import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 import type pg from 'pg';
@@ -27,21 +28,32 @@ const publicUser = (row: UserRow) => ({
   avatarUrl: row.avatar_url,
   createdAt: row.created_at.toISOString(),
 });
-// Passwords are hashed with scrypt (built into Node, no native dependency), stored as `scrypt$salt$hash` in base64.
+// Passwords are hashed with bcrypt (cost 12). bcrypt reads at most 72 bytes, so RegisterRequestSchema caps new
+// passwords at 72 bytes. Hashes from the short-lived scrypt era (`scrypt$salt$hash`) still verify and are
+// replaced with bcrypt on the next successful login.
+const BCRYPT_COST = 12;
+const SCRYPT_KEY_LENGTH = 64;
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
-const KEY_LENGTH = 64;
 export async function hashPassword(password: string) {
-  const salt = randomBytes(16);
-  const hash = await scryptAsync(password, salt, KEY_LENGTH);
-  return `scrypt$${salt.toString('base64')}$${hash.toString('base64')}`;
+  return bcrypt.hash(password, BCRYPT_COST);
+}
+export const isLegacyHash = (stored: string) => stored.startsWith('scrypt$');
+async function verifyLegacyScrypt(password: string, stored: string) {
+  const [, salt, hash] = stored.split('$');
+  if (!salt || !hash) return false;
+  const expected = Buffer.from(hash, 'base64');
+  if (expected.length !== SCRYPT_KEY_LENGTH) return false;
+  const actual = await scryptAsync(password, Buffer.from(salt, 'base64'), SCRYPT_KEY_LENGTH);
+  return timingSafeEqual(expected, actual);
 }
 export async function verifyPassword(password: string, stored: string) {
-  const [scheme, salt, hash] = stored.split('$');
-  if (scheme !== 'scrypt' || !salt || !hash) return false;
-  const expected = Buffer.from(hash, 'base64');
-  if (expected.length !== KEY_LENGTH) return false;
-  const actual = await scryptAsync(password, Buffer.from(salt, 'base64'), KEY_LENGTH);
-  return timingSafeEqual(expected, actual);
+  if (isLegacyHash(stored)) return verifyLegacyScrypt(password, stored);
+  if (!/^\$2[aby]\$\d{2}\$/.test(stored)) return false;
+  try {
+    return await bcrypt.compare(password, stored);
+  } catch {
+    return false;
+  }
 }
 // Checked when the email has no password, so a missing account takes as long as a wrong password.
 const DUMMY_HASH = hashPassword('recall-timing-equaliser');
@@ -79,6 +91,10 @@ export function authRouter(
     const user: UserRow | undefined = result.rows[0];
     const matches = await verifyPassword(password, user?.password_hash ?? (await DUMMY_HASH));
     if (!user?.password_hash || !matches) throw invalid();
+    if (isLegacyHash(user.password_hash)) {
+      const upgraded = await hashPassword(password);
+      await pool().query('UPDATE users SET password_hash = $1 WHERE id = $2', [upgraded, user.id]);
+    }
     res.json(respond(user));
   });
   router.post('/google', limiter, validateBody(GoogleLoginRequestSchema), async (req, res) => {

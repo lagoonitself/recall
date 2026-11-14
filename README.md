@@ -15,6 +15,34 @@ Recall turns a collection of documents, images, audio, and video into a library 
 
 <sub>Screenshots use the app's built-in demo data (mock mode), not real files.</sub>
 
+## Problem statement
+
+People keep what they know in many formats at once: PDF manuals and reports, scanned receipts, photos of whiteboards and labels, lecture and meeting recordings, and short videos. Most tools handle each format on its own. Text search ignores what is inside images, audio and video; transcripts lose the page or moment they came from; and general chatbots answer without showing where an answer came from.
+
+So finding one fact means opening files one by one, scrubbing through recordings, and re-reading documents. Answers that cannot be traced to a source are hard to trust, which slows decisions in study, research, maintenance and everyday paperwork.
+
+## Solution description
+
+Recall is a multimodal research library with an AI agent on top. You put documents, images, audio and video into collections, ask a question in text or with an attached photo, recording, PDF or video, and get an answer that cites the exact page, image or timestamp it came from.
+
+**How AI is integrated**
+
+- **Understanding every upload.** A background worker splits each file into pieces (PDF pages, audio and video segments, images, text passages). **Gemini Embedding 2** turns every piece, whatever its format, into a vector in one shared space, and **Google Gemini** writes a description of each media piece: a summary, a transcript, visible text and tags.
+- **Searching across formats.** Hybrid retrieval combines vector similarity with full-text search, so a text question can find a video clip and a photo can find the matching manual page.
+- **An agent that checks its sources.** A Gemini-powered agent decides which tools to use: search the library, list files, and open sources to look at the actual page image or media clip before it answers. Each step streams to the screen as it happens.
+- **Answers you can verify.** Answers stream with numbered citations. Each citation opens the source in place: the full PDF at the cited page, the image, or the audio or video at the cited second.
+- **Keys stay on the server.** All AI calls go through the Express backend; API keys live only in backend environment variables.
+
+**Key features**
+
+- Collections for PDFs, scans, Word, Markdown and text files, photos, audio and short videos, with live processing status
+- Questions in text, or with an attached photo, audio file, PDF or video
+- Visible agent activity: reasoning, searches and opened sources
+- Citations that open the exact page, image or timestamp
+- Saved conversations, scoped to one collection or the whole library
+- Email and password sign-in (bcrypt-hashed, JWT sessions) or Google sign-in
+- Responsive black-and-white interface with light and dark modes
+
 ## What you can do
 
 Keep related material in collections and ask questions across formats without searching each file yourself:
@@ -48,7 +76,7 @@ flowchart LR
     WORKER -->|"Chunks + vectors + locations"| DB
     API --> AGENT["Agent loop"]
     AGENT <--> ADAPTER
-    ADAPTER <--> LLM["LLM"]
+    ADAPTER <--> LLM["Google Gemini"]
     AGENT --> TOOLS["Search, open sources, list files"]
     TOOLS -->|"Embed query"| EMB
     TOOLS -->|"Hybrid retrieval"| DB
@@ -62,10 +90,10 @@ The application is a TypeScript monorepo with shared runtime schemas between the
 | Layer | Technology | Role |
 | --- | --- | --- |
 | Browser app | React 19, Vite, React Router, Tailwind CSS | Collections, uploads, chat, activity, and source viewers |
-| API | Node.js, Express, Zod | Authentication, validation, file management, and streaming chat |
+| API | Node.js, Express, Zod, JWT, bcrypt, Multer | Authentication, validation, file management, and streaming chat |
 | Shared contract | `@app/shared` | API schemas, TypeScript types, and stream event definitions |
 | Embeddings | **Gemini Embedding 2** (`gemini-embedding-2`) | Multimodal embeddings with 1,536 dimensions |
-| Agent and descriptions | An LLM behind a server-side interface | Tool selection, source inspection, descriptions, and answer generation |
+| Agent and descriptions | **Google Gemini** behind a server-side interface | Tool selection, source inspection, descriptions, and answer generation |
 | Database | Neon Postgres with pgvector | Users, collections, chunks, vectors, jobs, and conversations |
 | Object storage | Cloudflare R2 | Private originals, normalized pieces, thumbnails, and attachments |
 | Media processing | ffmpeg, ffprobe, Poppler, pdf-lib, sharp, mammoth | Media conversion, PDF splitting, thumbnails, and DOCX extraction |
@@ -80,7 +108,7 @@ This lets a photo retrieve a related document page or a text question retrieve a
 
 ### How the LLM fits in
 
-An LLM chooses tools, examines retrieved evidence, and writes the final answer. It also creates structured descriptions of media during ingestion so that search results can include readable summaries, transcripts, visible text, and tags.
+Google Gemini chooses tools, examines retrieved evidence, and writes the final answer. It also creates structured descriptions of media during ingestion so that search results can include readable summaries, transcripts, visible text, and tags.
 
 All LLM calls go through `server/src/agent/provider/`. The rest of the application works with a shared interface for streaming, tool calls, descriptions, and supported input types. Agent and description model identifiers come from server environment variables; the application can use page images, poster frames, or stored text when direct media input is unavailable.
 
@@ -252,7 +280,7 @@ Audio has no separate duration cap, but file size and account quotas still apply
 Authentication and ownership checks apply at the API and retrieval layers, and storage credentials stay on the server.
 
 - Google ID tokens are verified server-side, then exchanged for an application JSON Web Token (JWT)
-- Passwords are stored only as salted scrypt hashes. A wrong password and an unknown email get the same error and take the same time, and sign-in attempts are rate limited
+- Passwords are stored only as bcrypt hashes (cost 12). A wrong password and an unknown email get the same error and take the same time, and sign-in attempts are rate limited
 - When Google sign-in links an email that already has a password, the password is removed, so an account someone else registered with your email cannot keep access
 - Database queries and source access are scoped to the authenticated user
 - The R2 bucket stays private; the browser receives short-lived signed URLs after ownership checks
@@ -350,9 +378,8 @@ For implementation details and contribution guidance, start with these documents
 - [Architecture](docs/ARCHITECTURE.md): design, data model, and system flows; some planning-era descriptions predate the current UI
 - [Deployment guide](docs/DEPLOY.md): account setup, infrastructure configuration, and operations
 - [Decision log](docs/DECISIONS.md): recorded choices and tradeoffs
-- [Implementation plan](docs/PLAN.md) and [part briefs](docs/parts/README.md): work boundaries and completion criteria
-- [Agent and contribution instructions](AGENTS.md): branch scope, shared contracts, and independent review before merge
+- [Agent and contribution instructions](AGENTS.md): working rules, shared contracts, and review before merge
 
 ## Credits
 
-Recall uses Gemini Embedding 2 for multimodal retrieval and an LLM for agent behavior and answer generation. It builds on React, Vite, Tailwind CSS, Express, Zod, Postgres, pgvector, ffmpeg, Poppler, pdf-lib, sharp, mammoth, PDF.js, DOMPurify, Lucide, and MSW, with infrastructure from Vercel, Render, Neon, and Cloudflare. Those projects and services retain their respective licenses and terms.
+Recall uses Gemini Embedding 2 for multimodal retrieval and Google Gemini for agent behavior, media descriptions, and answer generation. It builds on React, Vite, Tailwind CSS, Express, Zod, Postgres, pgvector, ffmpeg, Poppler, pdf-lib, sharp, mammoth, PDF.js, DOMPurify, Lucide, and MSW, with infrastructure from Vercel, Render, Neon, and Cloudflare. Those projects and services retain their respective licenses and terms.

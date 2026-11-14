@@ -3,7 +3,7 @@
 **Theme:** Multimodal AI
 **One-line pitch:** Upload anything (documents, images, audio, video, scans), ask anything (by text, photo, voice note or video), and get an answer with the reasoning behind it and the exact sources: the page, the image, the second in the video.
 
-Related docs: [PLAN.md](PLAN.md) (work split into parts), [DECISIONS.md](DECISIONS.md) (decision log), [../HANDOFF.md](../HANDOFF.md) (current state).
+Related docs: [DEPLOY.md](DEPLOY.md) (deployment), [DECISIONS.md](DECISIONS.md) (decision log), [../HANDOFF.md](../HANDOFF.md) (current state).
 
 ---
 
@@ -123,7 +123,7 @@ The browser uploads straight to R2 with a short-lived signed URL, so large files
 
 ### 4.2 Splitting rules
 
-`gemini-embedding-2` takes one file per call. Google's documentation lists 8,192 input tokens, 6 PDF pages, 180 seconds of audio and 120 seconds of video; video audio tracks are not processed. P3's over-limit requests returned vectors, but did not establish whether content was truncated. Keep `AUDIO_PIECE_SEC` at the conservative default of 150 and retain the product's 80-second video cap. Every file is split so each piece fits, and each piece keeps its location so citations can point to it. See D21 for observations and the need to process video audio separately.
+`gemini-embedding-2` takes one file per call. Google's documentation lists 8,192 input tokens, 6 PDF pages, 180 seconds of audio and 120 seconds of video; video audio tracks are not processed. Over-limit test requests returned vectors, but did not establish whether content was truncated. Keep `AUDIO_PIECE_SEC` at the conservative default of 150 and retain the product's 80-second video cap. Every file is split so each piece fits, and each piece keeps its location so citations can point to it. See D21 for observations and the need to process video audio separately.
 
 **Video is capped at 80 seconds** as a conservative product limit, so a video is never split. The browser reads the duration before uploading and refuses longer videos, and the server checks again with `ffprobe` and rejects anything over 80 s. The same cap applies to videos attached to chat messages. **Audio has no length cap.** Long audio is split into `AUDIO_PIECE_SEC` pieces.
 
@@ -334,7 +334,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE users (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email         text UNIQUE NOT NULL,
-  password_hash text,                 -- scrypt hash (D28); NULL for Google-only accounts
+  password_hash text,                 -- bcrypt hash (D29); NULL for Google-only accounts
   google_sub    text UNIQUE,          -- Google account id ('sub' claim)
   name          text,
   avatar_url    text,
@@ -522,7 +522,7 @@ Main components:
 
 ## 10. Security
 
-- Sign-in is Google or email + password (D28). Google: the server verifies Google's ID token. Email: `POST /api/auth/register` and `/login`, password hashed with scrypt, same "Invalid email or password" message and timing for unknown emails. Both issue the server's own JWT, which expires in 7 days. When Google links an existing email, its password is cleared (pre-account takeover guard); that user signs in with Google from then on.
+- Sign-in is Google or email + password (D28). Google: the server verifies Google's ID token. Email: `POST /api/auth/register` and `/login`, password hashed with bcrypt (cost 12, at most 72 bytes; D29), same "Invalid email or password" message and timing for unknown emails. Both issue the server's own JWT, which expires in 7 days. When Google links an existing email, its password is cleared (pre-account takeover guard); that user signs in with Google from then on.
 - Every query is scoped by `user_id`. Signed R2 URLs are issued only after an ownership check, and expire in 10 minutes.
 - Zod validates every request. Uploads are checked by MIME type and size (50 MB per file). The signed PUT URL includes `Content-Length` and `Content-Type`, and `/complete` checks the stored object with `HEAD` before queuing it.
 - Per-user caps (storage quota, uploads per day, chat messages per minute) protect the shared API keys and the 10 GB R2 bucket.
@@ -588,9 +588,9 @@ Render's free service sleeps after 15 minutes with no requests, and the next req
 ├── keepalive/              Cloudflare Worker, cron every 10 min → GET /api/health
 ├── docs/
 │   ├── ARCHITECTURE.md     this file
-│   ├── PLAN.md             the work split into parts
+│   ├── DEPLOY.md           deployment and operations
 │   ├── DECISIONS.md        decision log
-│   └── parts/              one brief per part (P0–P12)
+│   └── images/             README screenshots
 ├── HANDOFF.md              current state; read first, update last
 ├── AGENTS.md               rules for every agent (CLAUDE.md points here)
 ├── Dockerfile              backend image with ffmpeg + poppler-utils
@@ -626,7 +626,7 @@ All in `server/.env` (git-ignored) locally and in Render's env settings in produ
 | `AGENT_MODEL`, `DESCRIBE_MODEL` | TBD | Model ids |
 | `LLM_CONCURRENCY`, `DESCRIBE_BATCH` | `2`, `4` | Throttle and batching |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | | Storage |
-| `AUDIO_PIECE_SEC` | `150` | Below the documented 180-second limit; P3 did not establish a hard boundary |
+| `AUDIO_PIECE_SEC` | `150` | Below the documented 180-second limit; the hard boundary was not measured |
 | `WORKER_CONCURRENCY` | `1` | Jobs at once |
 | `MAX_FILE_MB`, `USER_QUOTA_MB`, `UPLOADS_PER_DAY`, `CHAT_PER_MIN` | `50`, `500`, `100`, `6` | Per-user limits |
 
