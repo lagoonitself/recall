@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev": "npm run build -w @app/shared && concurrently -k \"npm run dev -w @app/shared\" \"npm run dev -w @app/server\" \"npm run dev -w @app/client\"",
+    "db:migrate": "npm run db:migrate -w @app/server",
     "build": "npm run build -w @app/shared && npm run build -w @app/server && npm run build -w @app/client",
     "typecheck": "npm run build -w @app/shared && npm run typecheck --workspaces --if-present",
     "test": "npm run build -w @app/shared && npm run test --workspaces --if-present",
