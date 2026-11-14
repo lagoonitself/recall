@@ -134,38 +134,70 @@ export function filesRouter(pool: () => pg.Pool, secret: string, storage: () => 
     )
       throw new HttpError(404, 'NOT_FOUND', 'Collection not found');
     const result = await pool().query(
-      'SELECT * FROM files WHERE user_id=$1 AND ($2::uuid IS NULL OR collection_id=$2) ORDER BY created_at DESC, id',
+      `SELECT f.*,
+        (SELECT c.id FROM chunks c WHERE c.file_id = f.id AND c.user_id = f.user_id ORDER BY c.seq ASC LIMIT 1) AS preview_chunk_id
+       FROM files f
+       WHERE f.user_id = $1 AND ($2::uuid IS NULL OR f.collection_id = $2)
+       ORDER BY f.created_at DESC, f.id`,
       [req.user!.id, collectionId ?? null],
     );
     res.json({ files: result.rows.map(fileResponse) });
   });
   router.get('/:id', validate({ params }), async (req, res) => {
-    const result = await pool().query('SELECT * FROM files WHERE id=$1 AND user_id=$2', [
-      req.params.id,
-      req.user!.id,
-    ]);
+    const result = await pool().query(
+      `SELECT f.*,
+        (SELECT c.id FROM chunks c WHERE c.file_id = f.id AND c.user_id = f.user_id ORDER BY c.seq ASC LIMIT 1) AS preview_chunk_id
+       FROM files f
+       WHERE f.id = $1 AND f.user_id = $2`,
+      [req.params.id, req.user!.id],
+    );
     if (!result.rowCount) throw missing();
     res.json({ file: fileResponse(result.rows[0]) });
   });
   router.delete('/:id', validate({ params }), async (req, res) => {
     const client = await pool().connect();
+    let prefixToDelete = '';
+    let keysToDelete: string[] = [];
     try {
       await client.query('BEGIN');
-      const result = await client.query('SELECT id FROM files WHERE id=$1 AND user_id=$2 FOR UPDATE', [
-        req.params.id,
-        req.user!.id,
-      ]);
+      const result = await client.query(
+        'SELECT id, r2_key FROM files WHERE id=$1 AND user_id=$2 FOR UPDATE',
+        [req.params.id, req.user!.id],
+      );
       if (!result.rowCount) throw missing();
-      await storage().deletePrefix(filePrefix(req.user!.id, req.params.id as string));
+      const chunks = await client.query(
+        'SELECT r2_key, thumb_r2_key FROM chunks WHERE file_id=$1 AND user_id=$2',
+        [req.params.id, req.user!.id],
+      );
+      const keys = new Set<string>();
+      if (result.rows[0].r2_key) keys.add(result.rows[0].r2_key);
+      for (const chunk of chunks.rows as { r2_key?: string; thumb_r2_key?: string }[]) {
+        if (chunk.r2_key) keys.add(chunk.r2_key);
+        if (chunk.thumb_r2_key) keys.add(chunk.thumb_r2_key);
+      }
+      keysToDelete = Array.from(keys);
+      prefixToDelete = filePrefix(req.user!.id, req.params.id as string);
+
       await client.query('DELETE FROM files WHERE id=$1 AND user_id=$2', [req.params.id, req.user!.id]);
       await client.query('COMMIT');
-      res.sendStatus(204);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();
     }
+
+    try {
+      if (keysToDelete.length > 0) {
+        await storage().deleteObjects(keysToDelete);
+      }
+      if (prefixToDelete) {
+        await storage().deletePrefix(prefixToDelete);
+      }
+    } catch (error) {
+      console.error('Failed to clean up R2 objects for file', req.params.id, error);
+    }
+    res.sendStatus(204);
   });
   return router;
 }

@@ -8,6 +8,7 @@ import {
   FilesResponseSchema,
   FileResponseSchema,
   UploadUrlResponseSchema,
+  MediaResponseSchema,
   ErrorResponseSchema,
   GoogleLoginRequestSchema,
   CreateCollectionRequestSchema,
@@ -79,6 +80,8 @@ export const api = {
     }),
   complete: (id: string) => request(`/files/${id}/complete`, FileResponseSchema, { method: 'POST' }),
   deleteFile: (id: string) => remove(`/files/${id}`),
+  chunkMedia: (chunkId: string, thumbnail = false) =>
+    request(`/chunks/${chunkId}/media${thumbnail ? '?thumbnail=true' : ''}`, MediaResponseSchema),
 };
 async function remove(path: string) {
   const headers = new Headers();

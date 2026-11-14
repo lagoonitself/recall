@@ -17,11 +17,12 @@ const ready = Boolean(testUrl && process.env.R2_ACCOUNT_ID && process.env.R2_SEC
 
 const ffmpeg = (args: string[]) => execFileSync('ffmpeg', ['-v', 'error', ...args, '-f', 'mp4', 'pipe:1']);
 
-describe.skipIf(!ready)('P4 ingestion on test database and R2', () => {
-  if (testUrl === process.env.DATABASE_URL)
+const suite = ready ? describe : describe.skip;
+suite('P4 ingestion on test database and R2', () => {
+  if (testUrl && testUrl === process.env.DATABASE_URL)
     throw new Error('TEST_DATABASE_URL must differ from DATABASE_URL');
-  const pool = createPool(testUrl!);
-  const storage = createR2();
+  const pool = ready ? createPool(testUrl!) : createPool('postgres://localhost/unused');
+  const storage = ready ? createR2() : ({} as ReturnType<typeof createR2>);
   // Embeddings are stubbed (free-tier quota); the real client is covered by P3's live spike.
   const embed = vi.fn(async () => Array.from({ length: 1536 }, (_, i) => (i === 0 ? 1 : 0)));
   const describer = new FakeProvider({});

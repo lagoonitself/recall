@@ -76,6 +76,8 @@ export function collectionsRouter(pool: () => pg.Pool, secret: string, storage: 
   router.delete('/:id', validate({ params }), async (req, res) => {
     // Postgres cascades the file rows, but R2 objects must be removed explicitly or they are orphaned.
     const client = await pool().connect();
+    let keysToDelete: string[] = [];
+    const prefixesToDelete: string[] = [];
     try {
       await client.query('BEGIN');
       const owned = await client.query(
@@ -84,23 +86,47 @@ export function collectionsRouter(pool: () => pg.Pool, secret: string, storage: 
       );
       if (!owned.rowCount) throw notFound();
       const files = await client.query(
-        'SELECT id FROM files WHERE collection_id = $1 AND user_id = $2 FOR UPDATE',
+        'SELECT id, r2_key FROM files WHERE collection_id = $1 AND user_id = $2 FOR UPDATE',
         [req.params.id, req.user!.id],
       );
-      for (const file of files.rows as { id: string }[])
-        await storage().deletePrefix(filePrefix(req.user!.id, file.id));
+      const chunks = await client.query(
+        'SELECT r2_key, thumb_r2_key FROM chunks WHERE collection_id = $1 AND user_id = $2',
+        [req.params.id, req.user!.id],
+      );
+      const keys = new Set<string>();
+      for (const file of files.rows as { id: string; r2_key: string }[]) {
+        if (file.r2_key) keys.add(file.r2_key);
+        prefixesToDelete.push(filePrefix(req.user!.id, file.id));
+      }
+      for (const chunk of chunks.rows as { r2_key?: string; thumb_r2_key?: string }[]) {
+        if (chunk.r2_key) keys.add(chunk.r2_key);
+        if (chunk.thumb_r2_key) keys.add(chunk.thumb_r2_key);
+      }
+      keysToDelete = Array.from(keys);
+
       await client.query('DELETE FROM collections WHERE id = $1 AND user_id = $2', [
         req.params.id,
         req.user!.id,
       ]);
       await client.query('COMMIT');
-      res.sendStatus(204);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();
     }
+
+    try {
+      if (keysToDelete.length > 0) {
+        await storage().deleteObjects(keysToDelete);
+      }
+      for (const prefix of prefixesToDelete) {
+        await storage().deletePrefix(prefix);
+      }
+    } catch (error) {
+      console.error('Failed to clean up R2 objects for collection', req.params.id, error);
+    }
+    res.sendStatus(204);
   });
   return router;
 }
