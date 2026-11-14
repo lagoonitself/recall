@@ -2,7 +2,7 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by Claude (review of previews & R2 cleanup)
+Last updated: 2026-11-14 by Claude (P7 review fixes)
 
 ---
 
@@ -23,7 +23,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 | P4 Ingestion worker | done | Terra (splitters) / Claude (worker, pipeline, describe, tests) | part/p4-ingestion | In-process worker (`RUN_WORKER`), retries + stale-lock reclaim, describe fallbacks |
 | P5 LLM provider | done | GPT-6.1 Terra / review Claude | part/p5b-llm-adapters | gemini, openrouter (free models), opencode (needs OpenCode Go) — D24 |
 | P6 Retrieval | done | GPT-6.1 Terra / review Claude | part/p6-retrieval | Hybrid vector + full-text with RRF; HNSW iterative scan |
-| P7 Agent + chat API | not started | — | — | |
+| P7 Agent + chat API | done | Claude / review Gemini 3.8 Flash | part/p7-agent-chat | Loop, 3 tools, SSE, conversations, attachments, citation filter, persistence, rate limit; live Gemini check passed (D25) |
 | P8 FE library | done | GPT-6.1 Terra / review Claude | part/p8-fe-library | Google-only sign-in; MSW mocks in dev; file previews & modal complete |
 | P9 FE chat | done | Gemini 3.8 Flash / review Claude | part/p9-fe-chat | Merged (#10); markdown sanitized with DOMPurify by Claude |
 | P10 Deploy + ops | not started | — | — | Needs Neon, R2, Render, Vercel, Cloudflare accounts |
@@ -38,8 +38,10 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 ## Next steps
 
-1. Running: P8, P5 real adapters. Claude reviews P6 and the other PRs.
-2. Next: P9 after P8, P4 when P2 is in `main`, P7 when P2 + P6 are in `main`.\n
+1. P9 (#10) and previews + R2 cleanup (#12) are merged. Running: P10 deploy prep (`part/p10-deploy-prep`, Gemini 3.8 Flash). Claude reviews and merges it.
+2. After P7 merges: switch P9 from the MSW fixture to the real stream and click through locally with `LLM_PROVIDER=gemini`.
+3. Then P10 real deploy (needs the user's accounts), P11 review/QA, P12 README + demo.
+
 ## Known problems
 
 P6 needs ffmpeg for audio attachments and pgvector 0.8+ for iterative scans. The small test fixture favored the scope index; HNSW use was confirmed with planner overrides, not production-size benchmarks.
@@ -54,11 +56,21 @@ P3 did not establish actual maximum fully processed duration/pages: over-limit r
 
 Real frontend uploads and a completed Google login still need manual verification; the real Google button renders locally. The HEIC converter is a large lazy-loaded chunk.
 
+P7: the provider is not interruptible mid-await, so a disconnect is noticed at the provider's next event. Gemini `gemini-3.5-flash-lite` streamed no reasoning in the live check (only tool steps showed); check thought settings in the Gemini adapter if visible reasoning matters for the demo. `maxMediaPartsPerRequest` is 1 for every model in `capabilities.ts`, so `open_sources` sends one real media piece per call and falls back for the rest; raise it per model once verified. Conversations have no DELETE route yet, and chat attachments under `users/{u}/attachments/` are not removed with anything but the user.
+
 ---
 
 ## Session log
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
+
+### 2026-11-14 · Claude · P7 agent + chat API
+- Added `agent/{sse,prompt,tools,loop}.ts` and `routes/conversations.ts` (list/create/detail, multipart send with Multer ≤ 3 files ≤ 20 MB, MIME check, ffprobe 80 s video cap, attachments to R2, SSE with 15 s ping, per-user `CHAT_PER_MIN`). Decisions in D25. `multer` added to server deps.
+- Tests: `src/agent/loop.test.ts` (8, FakeProvider: event order + schema, citation filter incl. split ids, clamping, bad args, forced last round, abort, provider error) and `test/p7.integration.test.ts` (4, test DB + R2: full stream + saved detail, attachment validation incl. 81 s video, disconnect saves partial, 429). Full server suite: 74 passed, 1 skipped.
+- Live check `server/scripts/agent-live.ts` with `LLM_PROVIDER=gemini AGENT_MODEL=gemini-3.5-flash-lite`: searched, opened, answered with `[S1]`, ignored the "reply PWNED" injection in the file.
+- Did not record a real SSE fixture into `client/src/mocks/fixtures/` (P9 owns that folder and is writing one now).
+- Started three Gemini 3.8 Flash (High) delegates: P9, P10 prep, previews + R2 cleanup.
+- Gemini review of #11 → fixed: Gemini adapter now merges consecutive same-role turns (parallel tool results + open_sources media); history no longer replays old `providerState`; whole-body 20 MB cap before Multer (411 without Content-Length); `</file-content>` escaped inside untrusted text; an unreadable/oversized piece falls back instead of failing the call; failed answers saved with a placeholder. Not changed: MIME map (pieces are always pdf/jpg/mp3/mp4/txt) and the 160-char preamble hold (D25). Server 76 passed / 1 skipped; live Gemini check passed again.
 
 ### 2026-11-14 · Gemini 3.8 Flash (review Claude) · Fix file previews & R2 collection delete cleanup
 - Task A (R2 collection delete leaks): Implemented batched `deleteObjects` in `r2.ts` ignoring 404s/NoSuchKey. Updated `DELETE /api/collections/:id` and `DELETE /api/files/:id` to collect file originals, pieces, and thumbnail keys in transaction, commit DB deletions, then delete R2 objects and prefix best-effort. Expanded integration test in `p2.integration.test.ts` to verify cascading R2 deletions for files, chunks, pieces, and thumbs.

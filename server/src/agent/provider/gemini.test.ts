@@ -67,3 +67,25 @@ describe('Gemini adapter', () => {
     expect(result[0].summary).toBe('a');
   });
 });
+
+describe('Gemini contents', () => {
+  it('merges parallel tool results and the media after them into one user turn', async () => {
+    const { contents } = await import('./gemini.js');
+    const out = contents([
+      { role: 'user', content: [{ type: 'text', text: 'q' }] },
+      {
+        role: 'assistant',
+        content: '',
+        toolCalls: [
+          { id: 'a', name: 'search_library', args: {} },
+          { id: 'b', name: 'open_sources', args: {} },
+        ],
+      },
+      { role: 'tool', toolCallId: 'a', content: 'r1' },
+      { role: 'tool', toolCallId: 'b', content: 'r2' },
+      { role: 'user', content: [{ type: 'text', text: 'media' }] },
+    ]);
+    expect(out.map((c) => c.role)).toEqual(['user', 'model', 'user']);
+    expect(out[2].parts).toHaveLength(3);
+  });
+});

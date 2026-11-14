@@ -12,9 +12,9 @@ function mediaParts(parts: (TextPart | MediaPart)[]): Part[] {
       : { inlineData: { mimeType: part.mimeType, data: Buffer.from(part.data).toString('base64') } },
   );
 }
-function contents(messages: AgentMessage[]): Content[] {
+export function contents(messages: AgentMessage[]): Content[] {
   const toolNames = new Map<string, string>();
-  return messages.map((message) => {
+  const list: Content[] = messages.map((message) => {
     if (message.role === 'user') return { role: 'user', parts: mediaParts(message.content) };
     if (message.role === 'tool') {
       const name = toolNames.get(message.toolCallId);
@@ -36,6 +36,15 @@ function contents(messages: AgentMessage[]): Content[] {
     ];
     return { role: 'model', parts };
   });
+  // Gemini wants user/model turns to alternate: parallel tool results and the media that follows them
+  // (open_sources) become one user turn.
+  const merged: Content[] = [];
+  for (const content of list) {
+    const last = merged.at(-1);
+    if (last && last.role === content.role) last.parts = [...(last.parts ?? []), ...(content.parts ?? [])];
+    else merged.push({ ...content, parts: [...(content.parts ?? [])] });
+  }
+  return merged;
 }
 
 export class GeminiProvider implements LlmProvider {
