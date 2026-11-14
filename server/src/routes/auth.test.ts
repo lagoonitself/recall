@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID, scryptSync } from 'node:crypto';
 import type pg from 'pg';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
@@ -58,6 +58,11 @@ function fakeUsers() {
     }
     if (sql === 'SELECT * FROM users WHERE email = $1')
       return result(rows.filter((row) => row.email === first));
+    if (sql === 'UPDATE users SET password_hash = $1 WHERE id = $2') {
+      const row = rows.find((candidate) => candidate.id === second);
+      if (row) row.password_hash = first;
+      return result(row ? [row] : []);
+    }
     if (sql === 'SELECT * FROM users WHERE id = $1') return result(rows.filter((row) => row.id === first));
     if (sql === 'SELECT * FROM users WHERE google_sub = $1')
       return result(rows.filter((row) => row.google_sub === first));
@@ -85,27 +90,38 @@ function setup(googleEmail = 'reader@example.com') {
   });
   return { app, rows: users.rows };
 }
+/** A hash in the format used before the switch to bcrypt. */
+function legacyScrypt(password: string) {
+  const salt = randomBytes(16);
+  return `scrypt$${salt.toString('base64')}$${scryptSync(password, salt, 64).toString('base64')}`;
+}
 const register = (app: ReturnType<typeof createApp>, body: object) =>
   request(app).post('/api/auth/register').send(body);
 const login = (app: ReturnType<typeof createApp>, body: object) =>
   request(app).post('/api/auth/login').send(body);
 
 describe('password hashing', () => {
-  it('stores a salted scrypt hash and verifies only the right password', async () => {
+  it('stores a salted bcrypt hash and verifies only the right password', async () => {
     const first = await hashPassword('password123');
     const second = await hashPassword('password123');
-    expect(first).toMatch(/^scrypt\$[A-Za-z0-9+/=]+\$[A-Za-z0-9+/=]+$/);
+    expect(first).toMatch(/^\$2[aby]\$12\$.{53}$/);
     expect(first).not.toBe(second);
     expect(first).not.toContain('password123');
     expect(await verifyPassword('password123', first)).toBe(true);
     expect(await verifyPassword('password124', first)).toBe(false);
     expect(await verifyPassword('', first)).toBe(false);
   });
+  it('still verifies a legacy scrypt hash', async () => {
+    const stored = legacyScrypt('password123');
+    expect(await verifyPassword('password123', stored)).toBe(true);
+    expect(await verifyPassword('password124', stored)).toBe(false);
+  });
   it('rejects malformed or foreign hashes instead of throwing', async () => {
     for (const stored of [
       '',
       'legacy-hash',
       'bcrypt$abc$def',
+      '$2b$12$tooshort',
       'scrypt$only-salt',
       'scrypt$c2FsdA==$c2hvcnQ=',
     ])
@@ -114,6 +130,11 @@ describe('password hashing', () => {
 });
 
 describe('POST /api/auth/register', () => {
+  it('rejects passwords longer than bcrypt can read (72 bytes)', async () => {
+    const { app } = setup();
+    expect((await register(app, { email: 'long@example.com', password: 'a'.repeat(73) })).status).toBe(400);
+    expect((await register(app, { email: 'ok@example.com', password: 'a'.repeat(72) })).status).toBe(201);
+  });
   it('creates an account, trims and lower-cases the email, and returns a working session', async () => {
     const { app, rows } = setup();
     const response = await register(app, {
@@ -125,7 +146,7 @@ describe('POST /api/auth/register', () => {
     expect(response.body.user).toMatchObject({ email: 'new@example.com', name: 'Ada', avatarUrl: null });
     expect(response.body.user).not.toHaveProperty('password_hash');
     expect(response.body.user).not.toHaveProperty('passwordHash');
-    expect(rows[0].password_hash).toMatch(/^scrypt\$/);
+    expect(rows[0].password_hash).toMatch(/^\$2[aby]\$12\$/);
     const me = await request(app)
       .get('/api/auth/me')
       .set('Authorization', 'Bearer ' + response.body.token);
@@ -162,6 +183,16 @@ describe('POST /api/auth/register', () => {
 });
 
 describe('POST /api/auth/login', () => {
+  it('upgrades a legacy scrypt hash to bcrypt after a successful sign-in', async () => {
+    const { app, rows } = setup();
+    await register(app, { email: 'old@example.com', password: 'password123' });
+    rows[0].password_hash = legacyScrypt('password123');
+    expect((await login(app, { email: 'old@example.com', password: 'wrong-pass' })).status).toBe(401);
+    expect(rows[0].password_hash).toMatch(/^scrypt\$/);
+    expect((await login(app, { email: 'old@example.com', password: 'password123' })).status).toBe(200);
+    expect(rows[0].password_hash).toMatch(/^\$2[aby]\$12\$/);
+    expect((await login(app, { email: 'old@example.com', password: 'password123' })).status).toBe(200);
+  });
   it('signs in with the right password, ignoring email case and spaces', async () => {
     const { app } = setup();
     const created = await register(app, { email: 'a@example.com', password: 'password123' });
