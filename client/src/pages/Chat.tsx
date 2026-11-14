@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { PanelLeft, ArrowDown } from 'lucide-react';
 import type { Conversation, Collection, Message, SseEvent } from '@app/shared';
 import { api, ApiError } from '../lib/api';
 import { streamMessage } from '../lib/sse';
 import { MessageList, type StreamingMessageState } from '../components/MessageList';
 import { Composer } from '../components/Composer';
+import { ScopePicker } from '../components/chat/ScopePicker';
+import { ChatSidebar } from '../components/chat/ChatSidebar';
+import { ChatEmptyState } from '../components/chat/ChatEmptyState';
 import type { ActivityStepData } from '../components/ActivityLog';
 
 export function ChatPage() {
@@ -16,6 +20,7 @@ export function ChatPage() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
 
   // Active chat state
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
@@ -28,21 +33,44 @@ export function ChatPage() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastSubmissionRef = useRef<{ text: string; files: File[] } | null>(null);
 
-  // Auto-scroll anchor
-  const scrollEndRef = useRef<HTMLDivElement | null>(null);
+  // Scroll management
+  const threadContainerRef = useRef<HTMLDivElement | null>(null);
+  const isNearBottomRef = useRef(true);
+  const [showJumpBottom, setShowJumpBottom] = useState(false);
 
-  const scrollToBottom = () => {
-    scrollEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
-  };
+  const checkIfNearBottom = useCallback(() => {
+    const el = threadContainerRef.current;
+    if (!el) return true;
+    const threshold = 120;
+    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    return distanceToBottom <= threshold;
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const near = checkIfNearBottom();
+    isNearBottomRef.current = near;
+    setShowJumpBottom(!near && (messages.length > 0 || !!streamingMessage));
+  }, [checkIfNearBottom, messages.length, streamingMessage]);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    const el = threadContainerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+    isNearBottomRef.current = true;
+    setShowJumpBottom(false);
+  }, []);
 
   // Load conversations list and collections
   const loadInitialData = useCallback(async () => {
     try {
+      setConversationsLoading(true);
       const [convRes, collRes] = await Promise.all([api.conversations(), api.collections()]);
       setConversations(convRes.conversations);
       setCollections(collRes.collections);
     } catch {
       // Ignored if unauthenticated or network error
+    } finally {
+      setConversationsLoading(false);
     }
   }, []);
 
@@ -51,24 +79,31 @@ export function ChatPage() {
   }, [loadInitialData]);
 
   // Load active conversation detail
-  const loadConversation = useCallback(async (id: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const detail = await api.conversation(id);
-      setCurrentConversation(detail.conversation);
-      setMessages(detail.messages);
-      setSelectedCollectionId(detail.conversation.collectionId ?? null);
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 404) {
-        setError('Conversation not found.');
-      } else {
-        setError(err instanceof Error ? err.message : 'Could not load conversation.');
+  const loadConversation = useCallback(
+    async (id: string) => {
+      try {
+        setLoading(true);
+        setError(null);
+        const detail = await api.conversation(id);
+        setCurrentConversation(detail.conversation);
+        setMessages(detail.messages);
+        setSelectedCollectionId(detail.conversation.collectionId ?? null);
+        // Wait for DOM paint then jump to bottom
+        requestAnimationFrame(() => {
+          scrollToBottom('instant');
+        });
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) {
+          setError('Conversation not found.');
+        } else {
+          setError(err instanceof Error ? err.message : 'Could not load conversation.');
+        }
+      } finally {
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [scrollToBottom],
+  );
 
   useEffect(() => {
     if (conversationId) {
@@ -80,10 +115,12 @@ export function ChatPage() {
     }
   }, [conversationId, loadConversation]);
 
-  // Scroll to bottom when new messages or tokens arrive
+  // Auto-scroll to bottom while streaming only if already near bottom
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, streamingMessage?.content]);
+    if (isNearBottomRef.current) {
+      scrollToBottom('smooth');
+    }
+  }, [messages, streamingMessage?.content, scrollToBottom]);
 
   // Stop active stream
   const handleStop = () => {
@@ -143,6 +180,8 @@ export function ChatPage() {
     };
 
     setMessages((prev) => [...prev, tempUserMessage]);
+    isNearBottomRef.current = true;
+    scrollToBottom('smooth');
 
     // Initialize streaming message
     const initialStreamingState: StreamingMessageState = {
@@ -273,7 +312,6 @@ export function ChatPage() {
       });
     } catch (err) {
       if (controller.signal.aborted) {
-        // Handled via handleStop
         return;
       }
       setStreamingMessage((prev) =>
@@ -301,147 +339,100 @@ export function ChatPage() {
   };
 
   const selectedCollectionName = collections.find((c) => c.id === selectedCollectionId)?.name;
+  const scopeLocked = Boolean(conversationId && messages.length > 0);
 
   return (
     <div className="chat-layout">
-      {/* Mobile sidebar backdrop */}
-      {sidebarOpen && (
-        <div className="chat-sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-hidden="true" />
-      )}
-
-      {/* Conversations sidebar */}
-      <aside className={`chat-sidebar ${sidebarOpen ? 'open' : ''}`} aria-label="Conversations">
-        <div className="sidebar-top">
-          <button type="button" className="button primary new-chat-btn" onClick={handleNewChat}>
-            + New Chat
-          </button>
-          <button
-            type="button"
-            className="icon-button close-sidebar-btn"
-            onClick={() => setSidebarOpen(false)}
-            aria-label="Close conversations menu"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="conversation-list" role="navigation" aria-label="Recent chats">
-          <p className="eyebrow sidebar-eyebrow">RECENT CHATS</p>
-          {conversations.length === 0 ? (
-            <p className="muted sidebar-empty">No conversations yet.</p>
-          ) : (
-            conversations.map((conv) => (
-              <Link
-                key={conv.id}
-                to={`/chat/${conv.id}`}
-                className={`conversation-item ${conv.id === conversationId ? 'active' : ''}`}
-                onClick={() => setSidebarOpen(false)}
-              >
-                <span className="conv-title">{conv.title || 'Untitled conversation'}</span>
-                <span className="conv-date">
-                  {new Date(conv.createdAt).toLocaleDateString([], {
-                    month: 'short',
-                    day: 'numeric',
-                  })}
-                </span>
-              </Link>
-            ))
-          )}
-        </div>
-      </aside>
+      {/* Conversations sidebar with recency grouping & mobile drawer */}
+      <ChatSidebar
+        conversations={conversations}
+        activeConversationId={conversationId}
+        loading={conversationsLoading}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        onNewChat={handleNewChat}
+      />
 
       {/* Main chat column */}
       <main className="chat-main">
-        {/* Top header bar */}
+        {/* Chat header (48px) */}
         <header className="chat-header">
-          <button
-            type="button"
-            className="icon-button mobile-menu-btn"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open conversation history"
-          >
-            ☰
-          </button>
+          <div className="chat-header-left">
+            <button
+              type="button"
+              className="btn btn-ghost btn-icon btn-sm chat-mobile-menu-btn"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open conversations history"
+              title="Open conversations"
+            >
+              <PanelLeft className="chat-header-panel-icon" strokeWidth={1.75} aria-hidden="true" />
+            </button>
 
-          <div className="chat-header-info">
-            <h1 className="chat-title">{currentConversation?.title || 'Recall Assistant'}</h1>
-            <span className="chat-scope-badge">
-              {selectedCollectionName ? `📁 ${selectedCollectionName}` : '🌐 All collections'}
-            </span>
+            <h1 className="chat-title">
+              {currentConversation?.title || (conversationId ? 'Untitled conversation' : 'Recall')}
+            </h1>
           </div>
 
-          {/* Collection picker */}
-          <div className="chat-collection-picker">
-            <label htmlFor="collection-select" className="visually-hidden">
-              Scope search to collection
-            </label>
-            <select
-              id="collection-select"
-              className="collection-select"
-              value={selectedCollectionId ?? ''}
-              onChange={(e) => setSelectedCollectionId(e.target.value || null)}
-              disabled={Boolean(conversationId && messages.length > 0)}
-              aria-label="Filter context by collection"
-            >
-              <option value="">All Collections</option>
-              {collections.map((coll) => (
-                <option key={coll.id} value={coll.id}>
-                  {coll.name}
-                </option>
-              ))}
-            </select>
+          <div className="chat-header-right">
+            <ScopePicker
+              collections={collections}
+              selectedCollectionId={selectedCollectionId}
+              onSelectCollection={setSelectedCollectionId}
+              disabled={scopeLocked}
+            />
           </div>
         </header>
 
-        {/* Content & messages thread */}
-        <div className="chat-thread-container">
-          {error && (
-            <div className="chat-alert error-alert" role="alert">
-              <span>{error}</span>
-            </div>
-          )}
-
-          {loading ? (
-            <div className="chat-loading-state">
-              <p>Loading messages…</p>
-            </div>
-          ) : messages.length === 0 && !streamingMessage ? (
-            <div className="chat-empty-state">
-              <div className="empty-icon" aria-hidden="true">
-                💬
+        {/* Thread area */}
+        <div
+          ref={threadContainerRef}
+          className="chat-thread-container"
+          onScroll={handleScroll}
+        >
+          <div className="chat-thread-content">
+            {error && (
+              <div className="chat-alert badge-danger" role="alert">
+                <span>{error}</span>
               </div>
-              <h2>Ask your library anything</h2>
-              <p className="muted">
-                Recall retrieves exact passages, audio snippets, video frames, and manual pages. Attach
-                photos, voice notes, or documents to search multimodal source material.
-              </p>
-              <div className="empty-suggestions">
-                <button
-                  type="button"
-                  className="suggestion-chip"
-                  onClick={() => void handleSend('What warning lights are in my vehicle manual?', [])}
-                >
-                  "What warning lights are in my vehicle manual?"
-                </button>
-                <button
-                  type="button"
-                  className="suggestion-chip"
-                  onClick={() =>
-                    void handleSend('Explain the maintenance procedure for checking coolant', [])
-                  }
-                >
-                  "Explain the maintenance procedure for checking coolant"
-                </button>
-              </div>
-            </div>
-          ) : (
-            <MessageList messages={messages} streamingMessage={streamingMessage} onRetry={handleRetry} />
-          )}
+            )}
 
-          <div ref={scrollEndRef} className="scroll-anchor" />
+            {loading ? (
+              <div className="chat-loading-state">
+                <div className="chat-loading-skeletons" aria-label="Loading conversation messages">
+                  <div className="skeleton chat-loading-skeleton-row" style={{ width: '60%' }} />
+                  <div className="skeleton chat-loading-skeleton-row" style={{ width: '85%' }} />
+                  <div className="skeleton chat-loading-skeleton-row" style={{ width: '70%' }} />
+                </div>
+              </div>
+            ) : messages.length === 0 && !streamingMessage ? (
+              <ChatEmptyState
+                scopeName={selectedCollectionName}
+                onSelectSuggestion={(prompt) => void handleSend(prompt, [])}
+              />
+            ) : (
+              <MessageList
+                messages={messages}
+                streamingMessage={streamingMessage}
+                onRetry={handleRetry}
+              />
+            )}
+          </div>
         </div>
 
-        {/* Bottom Composer */}
+        {/* Floating "Jump to latest" button */}
+        {showJumpBottom && (
+          <button
+            type="button"
+            className="btn btn-secondary btn-icon btn-sm chat-jump-bottom"
+            onClick={() => scrollToBottom('smooth')}
+            aria-label="Jump to latest messages"
+            title="Jump to latest"
+          >
+            <ArrowDown className="chat-jump-icon" strokeWidth={2} aria-hidden="true" />
+          </button>
+        )}
+
+        {/* Bottom Composer docked */}
         <div className="chat-composer-section">
           <Composer
             onSend={(text, files) => void handleSend(text, files)}

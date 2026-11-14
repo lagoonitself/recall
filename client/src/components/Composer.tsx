@@ -1,4 +1,13 @@
-import { useState, useRef, useEffect, type ChangeEvent, type KeyboardEvent } from 'react';
+import {
+  useState,
+  useRef,
+  useEffect,
+  type ChangeEvent,
+  type KeyboardEvent,
+  type ClipboardEvent,
+  type DragEvent,
+} from 'react';
+import { Paperclip, ArrowUp, Square, X, FileText, Video, Music, File as FileIcon } from 'lucide-react';
 
 const MAX_ATTACHMENTS = 3;
 const MAX_TOTAL_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -11,40 +20,59 @@ export interface ComposerProps {
   disabled?: boolean;
 }
 
-export function Composer({ onSend, onStop, isStreaming = false, disabled = false }: ComposerProps) {
+export function Composer({
+  onSend,
+  onStop,
+  isStreaming = false,
+  disabled = false,
+}: ComposerProps) {
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  // Voice recording state
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordSeconds, setRecordSeconds] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const recordTimerRef = useRef<number | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const photoInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const dragCounterRef = useRef(0);
+  const objectUrlsRef = useRef<Map<File, string>>(new Map());
 
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
+      const scrollHeight = textareaRef.current.scrollHeight;
+      textareaRef.current.style.height = `${Math.min(Math.max(scrollHeight, 24), 180)}px`;
     }
   }, [text]);
 
-  // Clean up recording timer and stream on unmount
+  // Manage object URLs for image thumbnails and revoke them properly
   useEffect(() => {
-    return () => {
-      if (recordTimerRef.current) window.clearInterval(recordTimerRef.current);
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
+    const currentUrls = objectUrlsRef.current;
+    const currentFilesSet = new Set(files);
+
+    // Revoke removed files
+    for (const [file, url] of currentUrls.entries()) {
+      if (!currentFilesSet.has(file)) {
+        URL.revokeObjectURL(url);
+        currentUrls.delete(file);
       }
+    }
+
+    // Create object URLs for new image files
+    for (const file of files) {
+      if (file.type.startsWith('image/') && !currentUrls.has(file)) {
+        currentUrls.set(file, URL.createObjectURL(file));
+      }
+    }
+
+    return () => {
+      // Clean up on unmount
+      for (const url of currentUrls.values()) {
+        URL.revokeObjectURL(url);
+      }
+      currentUrls.clear();
     };
-  }, []);
+  }, [files]);
 
   async function processAttachment(file: File): Promise<File> {
     const isHeic = /\.(heic|heif)$/i.test(file.name) || /image\/hei[cf]/i.test(file.type);
@@ -86,7 +114,7 @@ export function Composer({ onSend, onStop, isStreaming = false, disabled = false
     return prepared;
   }
 
-  async function handleAddFiles(newFileList: FileList | null) {
+  async function handleAddFiles(newFileList: FileList | File[] | null) {
     if (!newFileList || newFileList.length === 0) return;
     setError(null);
 
@@ -118,114 +146,17 @@ export function Composer({ onSend, onStop, isStreaming = false, disabled = false
   }
 
   function handleRemoveFile(index: number) {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  async function startRecording() {
-    setError(null);
-    if (files.length >= MAX_ATTACHMENTS) {
-      setError(`Maximum ${MAX_ATTACHMENTS} attachments allowed.`);
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm')
-        ? 'audio/webm'
-        : MediaRecorder.isTypeSupported('audio/mp4')
-          ? 'audio/mp4'
-          : '';
-
-      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-      mediaRecorderRef.current = recorder;
-      audioChunksRef.current = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
+    setFiles((prev) => {
+      const target = prev[index];
+      if (target) {
+        const url = objectUrlsRef.current.get(target);
+        if (url) {
+          URL.revokeObjectURL(url);
+          objectUrlsRef.current.delete(target);
         }
-      };
-
-      recorder.onstop = () => {
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach((t) => t.stop());
-          streamRef.current = null;
-        }
-        if (recordTimerRef.current) {
-          window.clearInterval(recordTimerRef.current);
-          recordTimerRef.current = null;
-        }
-        setIsRecording(false);
-      };
-
-      recorder.start(100);
-      setIsRecording(true);
-      setRecordSeconds(0);
-
-      recordTimerRef.current = window.setInterval(() => {
-        setRecordSeconds((s) => s + 1);
-      }, 1000);
-    } catch {
-      setError('Microphone access was denied or is unavailable.');
-      setIsRecording(false);
-    }
-  }
-
-  function stopAndSaveRecording() {
-    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') return;
-
-    mediaRecorderRef.current.onstop = () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
       }
-      if (recordTimerRef.current) {
-        window.clearInterval(recordTimerRef.current);
-        recordTimerRef.current = null;
-      }
-      setIsRecording(false);
-
-      const mime = mediaRecorderRef.current?.mimeType || 'audio/webm';
-      const ext = mime.includes('mp4') ? 'mp4' : 'webm';
-      const audioBlob = new Blob(audioChunksRef.current, { type: mime });
-      const voiceFile = new File([audioBlob], `voice-note-${Date.now()}.${ext}`, { type: mime });
-
-      const combined = [...files, voiceFile];
-      const totalSize = combined.reduce((acc, f) => acc + f.size, 0);
-      if (totalSize > MAX_TOTAL_SIZE) {
-        setError('Recorded audio exceeds the 20 MB message limit.');
-        return;
-      }
-      setFiles(combined);
-    };
-
-    mediaRecorderRef.current.stop();
-  }
-
-  function cancelRecording() {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.onstop = () => {
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach((t) => t.stop());
-          streamRef.current = null;
-        }
-        if (recordTimerRef.current) {
-          window.clearInterval(recordTimerRef.current);
-          recordTimerRef.current = null;
-        }
-        setIsRecording(false);
-        audioChunksRef.current = [];
-      };
-      mediaRecorderRef.current.stop();
-    } else {
-      setIsRecording(false);
-      if (recordTimerRef.current) {
-        window.clearInterval(recordTimerRef.current);
-        recordTimerRef.current = null;
-      }
-    }
+      return prev.filter((_, i) => i !== index);
+    });
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -235,8 +166,48 @@ export function Composer({ onSend, onStop, isStreaming = false, disabled = false
     }
   }
 
+  function handlePaste(e: ClipboardEvent<HTMLTextAreaElement>) {
+    if (e.clipboardData.files && e.clipboardData.files.length > 0) {
+      void handleAddFiles(e.clipboardData.files);
+    }
+  }
+
+  function handleDragEnter(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  }
+
+  function handleDragLeave(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDragging(false);
+    }
+  }
+
+  function handleDragOver(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function handleDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounterRef.current = 0;
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      void handleAddFiles(e.dataTransfer.files);
+    }
+  }
+
   function handleSubmit() {
-    if (isStreaming) return;
+    if (isStreaming || disabled) return;
     const trimmed = text.trim();
     if (!trimmed && files.length === 0) return;
 
@@ -246,195 +217,168 @@ export function Composer({ onSend, onStop, isStreaming = false, disabled = false
     setError(null);
   }
 
-  const formatTimer = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
+  const formatFileSize = (bytes: number) => {
+    if (bytes >= 1024 * 1024) {
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    return `${Math.round(bytes / 1024)} KB`;
   };
+
+  const getFileIcon = (file: File) => {
+    if (file.type.startsWith('video/')) return Video;
+    if (file.type.startsWith('audio/')) return Music;
+    if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) return FileText;
+    if (
+      file.type.startsWith('text/') ||
+      file.name.endsWith('.docx') ||
+      file.name.endsWith('.md')
+    ) {
+      return FileText;
+    }
+    return FileIcon;
+  };
+
+  const canSend = !disabled && !isStreaming && (text.trim().length > 0 || files.length > 0);
 
   return (
     <div className="composer-container">
+      <div
+        className={`composer-box ${isDragging ? 'dragging' : ''}`}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {/* Attachment chips row */}
+        {files.length > 0 && (
+          <div className="composer-attachments" role="list" aria-label="Attached files">
+            {files.map((file, idx) => {
+              const isImage = file.type.startsWith('image/');
+              const thumbUrl = objectUrlsRef.current.get(file);
+              const Icon = getFileIcon(file);
+
+              return (
+                <div
+                  className="composer-attachment-tile"
+                  key={`${file.name}-${idx}`}
+                  role="listitem"
+                  title={`${file.name} (${formatFileSize(file.size)})`}
+                >
+                  {isImage && thumbUrl ? (
+                    <img
+                      src={thumbUrl}
+                      alt={file.name}
+                      className="composer-tile-thumb"
+                    />
+                  ) : (
+                    <div className="composer-tile-file">
+                      <Icon className="composer-tile-icon" strokeWidth={1.75} aria-hidden="true" />
+                      <span className="composer-tile-name">{file.name}</span>
+                      <span className="composer-tile-size">{formatFileSize(file.size)}</span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className="composer-tile-remove"
+                    onClick={() => handleRemoveFile(idx)}
+                    aria-label={`Remove ${file.name}`}
+                    title={`Remove ${file.name}`}
+                  >
+                    <X className="composer-remove-icon" strokeWidth={2} aria-hidden="true" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Textarea */}
+        <textarea
+          ref={textareaRef}
+          rows={1}
+          className="composer-textarea"
+          placeholder="Ask about your library…"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          disabled={disabled || isStreaming}
+          aria-label="Message text"
+        />
+
+        {/* Footer row */}
+        <div className="composer-footer">
+          <div className="composer-actions-left">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*,audio/*,application/pdf,text/*,.docx,.md"
+              multiple
+              className="visually-hidden"
+              id="file-attachment-input"
+              onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                void handleAddFiles(e.target.files);
+                e.target.value = '';
+              }}
+              disabled={disabled || isStreaming || files.length >= MAX_ATTACHMENTS}
+            />
+            <button
+              type="button"
+              className="btn btn-ghost btn-icon btn-sm composer-attach-btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || isStreaming || files.length >= MAX_ATTACHMENTS}
+              aria-label="Attach files"
+              title="Attach files"
+            >
+              <Paperclip className="composer-action-icon" strokeWidth={1.75} aria-hidden="true" />
+            </button>
+          </div>
+
+          <div className="composer-hint" aria-hidden="true">
+            Enter to send · Shift+Enter for new line
+          </div>
+
+          <div className="composer-actions-right">
+            {isStreaming ? (
+              <button
+                type="button"
+                className="btn btn-primary composer-stop-btn"
+                onClick={onStop}
+                aria-label="Stop generating"
+                title="Stop generating"
+              >
+                <Square className="composer-stop-icon" strokeWidth={2} aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-primary composer-send-btn"
+                onClick={handleSubmit}
+                disabled={!canSend}
+                aria-label="Send message"
+                title="Send message"
+              >
+                <ArrowUp className="composer-send-icon" strokeWidth={2} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Error under composer */}
       {error && (
         <div className="composer-error" role="alert">
-          <span>{error}</span>
+          <span className="composer-error-text">{error}</span>
           <button
             type="button"
             className="composer-dismiss-btn"
             onClick={() => setError(null)}
             aria-label="Dismiss error"
+            title="Dismiss error"
           >
-            ✕
+            <X className="composer-dismiss-icon" strokeWidth={1.75} aria-hidden="true" />
           </button>
         </div>
-      )}
-
-      {files.length > 0 && (
-        <div className="attachment-chips" role="list" aria-label="Attached files">
-          {files.map((file, idx) => (
-            <div className="attachment-chip" key={`${file.name}-${idx}`} role="listitem">
-              <span className="chip-icon" aria-hidden="true">
-                {file.type.startsWith('image/')
-                  ? '🖼️'
-                  : file.type.startsWith('video/')
-                    ? '🎬'
-                    : file.type.startsWith('audio/')
-                      ? '🎧'
-                      : file.type === 'application/pdf'
-                        ? '📄'
-                        : '📝'}
-              </span>
-              <span className="chip-name" title={file.name}>
-                {file.name}
-              </span>
-              <span className="chip-size">
-                ({(file.size / 1024 / (file.size > 1024 * 1024 ? 1024 : 1)).toFixed(1)}{' '}
-                {file.size > 1024 * 1024 ? 'MB' : 'KB'})
-              </span>
-              <button
-                type="button"
-                className="chip-remove-btn"
-                onClick={() => handleRemoveFile(idx)}
-                aria-label={`Remove attachment ${file.name}`}
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {isRecording ? (
-        <div className="recording-bar" role="status" aria-live="polite">
-          <div className="recording-pulse-wrapper">
-            <span className="recording-dot" />
-            <span className="recording-label">Recording voice note</span>
-            <span className="recording-timer">{formatTimer(recordSeconds)}</span>
-          </div>
-
-          <div className="recording-actions">
-            <button
-              type="button"
-              className="button secondary compact-btn cancel-record-btn"
-              onClick={cancelRecording}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="button primary compact-btn done-record-btn"
-              onClick={stopAndSaveRecording}
-            >
-              Done ✓
-            </button>
-          </div>
-        </div>
-      ) : (
-        <form
-          className="composer-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSubmit();
-          }}
-        >
-          <div className="composer-input-row">
-            <textarea
-              ref={textareaRef}
-              rows={1}
-              className="composer-textarea"
-              placeholder="Ask anything about your library or attachments…"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={disabled || isStreaming}
-              aria-label="Message text"
-            />
-
-            <div className="composer-controls">
-              {/* Photo picker */}
-              <input
-                ref={photoInputRef}
-                type="file"
-                accept="image/*"
-                className="visually-hidden"
-                id="photo-picker"
-                onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                  void handleAddFiles(e.target.files);
-                  e.target.value = '';
-                }}
-                disabled={disabled || isStreaming || files.length >= MAX_ATTACHMENTS}
-              />
-              <button
-                type="button"
-                className="icon-button composer-tool-btn"
-                onClick={() => photoInputRef.current?.click()}
-                disabled={disabled || isStreaming || files.length >= MAX_ATTACHMENTS}
-                aria-label="Add photo attachment"
-                title="Add photo"
-              >
-                📷
-              </button>
-
-              {/* General file picker */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,video/*,audio/*,application/pdf,text/*,.docx,.md"
-                multiple
-                className="visually-hidden"
-                id="file-picker"
-                onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                  void handleAddFiles(e.target.files);
-                  e.target.value = '';
-                }}
-                disabled={disabled || isStreaming || files.length >= MAX_ATTACHMENTS}
-              />
-              <button
-                type="button"
-                className="icon-button composer-tool-btn"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={disabled || isStreaming || files.length >= MAX_ATTACHMENTS}
-                aria-label="Attach documents, audio, or video"
-                title="Attach file"
-              >
-                📎
-              </button>
-
-              {/* Voice recording button */}
-              <button
-                type="button"
-                className="icon-button composer-tool-btn"
-                onClick={() => void startRecording()}
-                disabled={disabled || isStreaming || files.length >= MAX_ATTACHMENTS}
-                aria-label="Record voice note"
-                title="Record voice note"
-              >
-                🎙️
-              </button>
-
-              {/* Submit or Stop button */}
-              {isStreaming ? (
-                <button
-                  type="button"
-                  className="button stop-btn"
-                  onClick={onStop}
-                  aria-label="Stop generation"
-                  title="Stop generating response"
-                >
-                  <span className="stop-square" /> Stop
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  className="button primary send-btn"
-                  disabled={disabled || (!text.trim() && files.length === 0)}
-                  aria-label="Send message"
-                >
-                  Send
-                </button>
-              )}
-            </div>
-          </div>
-        </form>
       )}
     </div>
   );
