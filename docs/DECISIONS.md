@@ -24,12 +24,12 @@ Append-only. Newest at the bottom. Each entry: date, decision, why, who decided.
 
 | D18 | 2026-11-14 | Use camelCase REST objects and `{event, data}` SSE envelopes; define initial REST response shapes from the data model where ?8 omits them. Use built `@app/shared` exports with a TypeScript watch in dev. | Gives both workspaces an executable shared contract; downstream implementation should review unspecified details before relying on them. | GPT-6.1 Terra (Codex) |
 | D19 | 2026-11-14 | Add Google sign-in next to email/password. Browser uses Google Identity Services to get an ID token; `POST /api/auth/google` verifies it with `google-auth-library` (`aud` = `GOOGLE_CLIENT_ID`, `email_verified`) and issues our own JWT. `users.password_hash` becomes nullable; new `google_sub`, `avatar_url`. Accounts link by verified email. Built in P1 (server) and P8 (button). | User asked for Google login. ID-token flow needs no client secret and no redirect handling, and keeps one JWT session model. | User / Claude |
+| D20 | 2026-11-14 | **Resolves the LLM question in D4.** Three real providers plus `fake`, chosen by the operator only, through server env: `LLM_PROVIDER` = `gemini` (Google AI Studio, native `@google/genai`, reuses `GEMINI_API_KEY`) · `openrouter` (OpenAI-compatible, `OPENROUTER_API_KEY`) · `opencode` (OpenCode Zen, OpenAI-compatible, `OPENCODE_API_KEY`, base URL from `OPENCODE_BASE_URL`) · `fake`. Models from `AGENT_MODEL` / `DESCRIBE_MODEL`. Optional `DESCRIBE_PROVIDER` (defaults to `LLM_PROVIDER`) so audio/video describe can use Gemini while the agent uses another provider. End users never see or choose the provider. Switching = change env on Render and restart; no code change. OpenRouter and OpenCode share one OpenAI-compatible adapter with per-provider presets. | Operator wants to switch freely between Gemini, OpenRouter and OpenCode; Gemini takes audio/video natively. | User |
 
 ## Pending
 
 | Question | Blocks | Answered by |
 |---|---|---|
-| Which LLM for the agent? Does it accept image / PDF / audio / video, tools and reasoning output? | P5 real adapter | User |
-| Is a separate describe model needed (if the agent model can't take audio/video)? | P4 real describe | User, after the above |
+| Default models per provider (`AGENT_MODEL`, `DESCRIBE_MODEL`) and their capability rows | P5 real adapters | P5, measured |
 | Gemini key limits for `gemini-embedding-2` (RPM / RPD in AI Studio) | `EMBED_RPM`, demo library size | User |
 | Real per-call limits of `gemini-embedding-2` (audio seconds, image formats) | `AUDIO_PIECE_SEC` | P3 |
