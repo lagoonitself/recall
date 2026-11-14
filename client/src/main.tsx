@@ -6,6 +6,7 @@ import { AppShell } from './components/AppShell';
 import { AuthPage } from './pages/Auth';
 import { Collections } from './pages/Collections';
 import { CollectionPage } from './pages/Collection';
+import { ChatPage } from './pages/Chat';
 import './style.css';
 function Protected() {
   const { user, loading } = useAuth();
@@ -28,6 +29,8 @@ async function start() {
             <Route element={<Protected />}>
               <Route path="/" element={<Collections />} />
               <Route path="/collections/:id" element={<CollectionPage />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/chat/:conversationId" element={<ChatPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
