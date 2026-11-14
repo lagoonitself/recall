@@ -12,6 +12,7 @@ import {
 } from './index.js';
 import { loadConfig } from '../../lib/config.js';
 import { PendingProvider } from './pending.js';
+import { OpenAICompatibleProvider } from './openai.js';
 import type { FakeScript } from './index.js';
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures.json', import.meta.url), 'utf8')) as FakeScript;
@@ -102,6 +103,8 @@ describe('fake provider and factory', () => {
     expect(getDescribeProvider({ LLM_PROVIDER: 'fake', DESCRIBE_PROVIDER: 'gemini' })).toBeInstanceOf(
       PendingProvider,
     );
-    expect(getProvider({ LLM_PROVIDER: 'openrouter' })).toBeInstanceOf(PendingProvider);
+    expect(getProvider({ LLM_PROVIDER: 'openrouter', OPENROUTER_API_KEY: 'key' })).toBeInstanceOf(
+      OpenAICompatibleProvider,
+    );
   });
 });

@@ -1,5 +1,6 @@
 import { FakeProvider } from './fake.js';
 import { PendingProvider } from './pending.js';
+import { OpenAICompatibleProvider } from './openai.js';
 import type { LlmProvider } from './types.js';
 export { capabilities } from './capabilities.js';
 export { FakeProvider } from './fake.js';
@@ -15,13 +16,24 @@ export function getProviderConfig(env: NodeJS.ProcessEnv = process.env) {
 }
 export function getProvider(env: NodeJS.ProcessEnv = process.env): LlmProvider {
   const { provider } = getProviderConfig(env);
-  return selectProvider(provider);
+  return selectProvider(provider, env);
 }
 export function getDescribeProvider(env: NodeJS.ProcessEnv = process.env): LlmProvider {
-  return selectProvider(env.DESCRIBE_PROVIDER || env.LLM_PROVIDER || 'fake');
+  return selectProvider(env.DESCRIBE_PROVIDER || env.LLM_PROVIDER || 'fake', env);
 }
-function selectProvider(provider: string): LlmProvider {
+function selectProvider(provider: string, env: NodeJS.ProcessEnv): LlmProvider {
   if (provider === 'fake') return new FakeProvider();
-  if (['gemini', 'openrouter', 'opencode'].includes(provider)) return new PendingProvider(provider);
+  if (provider === 'gemini') return new PendingProvider(provider);
+  if (provider === 'openrouter' || provider === 'opencode') {
+    const keyName = provider === 'openrouter' ? 'OPENROUTER_API_KEY' : 'OPENCODE_API_KEY';
+    const apiKey = env[keyName];
+    if (!apiKey) throw new Error(`${keyName} is required for the selected provider`);
+    const baseUrl = provider === 'openrouter' ? 'https://openrouter.ai/api/v1' : env.OPENCODE_BASE_URL;
+    if (!baseUrl) throw new Error('OPENCODE_BASE_URL is required for the selected provider');
+    const concurrency = Number(env.LLM_CONCURRENCY || 2);
+    if (!Number.isInteger(concurrency) || concurrency < 1)
+      throw new Error('LLM_CONCURRENCY must be a positive integer');
+    return new OpenAICompatibleProvider({ provider, apiKey, baseUrl, concurrency });
+  }
   throw new Error('Unsupported LLM_PROVIDER or DESCRIBE_PROVIDER');
 }
