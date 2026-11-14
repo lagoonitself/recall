@@ -1,6 +1,13 @@
 node_modules
 **/node_modules
+dist
 **/dist
 .git
+.github
 .env*
 **/.env*
+client
+docs
+keepalive
+.agents
+.gemini
