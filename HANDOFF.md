@@ -2,13 +2,13 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by Claude (planning session)
+Last updated: 2026-11-14 by GPT-6.1 Terra (Codex)
 
 ---
 
 ## Current state
 
-Planning is done. No code exists yet. The repo is not a git repository yet (P0 runs `git init`).
+P0 foundation is implemented on `part/p0-foundation` and awaits independent review. Docker image build remains unverified because the Docker daemon was unavailable.
 
 ## Part status
 
@@ -43,7 +43,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 ## Known problems
 
-None yet.
+Docker Desktop Linux engine was unavailable during P0 verification. The install reports three development dependency vulnerabilities; `npm audit --omit=dev` reports zero.
 
 ---
 
