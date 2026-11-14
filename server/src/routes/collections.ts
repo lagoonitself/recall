@@ -5,6 +5,8 @@ import { CreateCollectionRequestSchema, UpdateCollectionRequestSchema } from '@a
 import { validate } from '../lib/validation.js';
 import { HttpError } from '../lib/errors.js';
 import { requireAuth } from '../lib/auth.js';
+import type { R2 } from '../lib/r2.js';
+import { filePrefix } from '../services/files.js';
 
 type Row = {
   id: string;
@@ -29,7 +31,7 @@ function conflict(error: unknown): never {
     throw new HttpError(409, 'CONFLICT', 'Collection name already exists');
   throw error;
 }
-export function collectionsRouter(pool: () => pg.Pool, secret: string) {
+export function collectionsRouter(pool: () => pg.Pool, secret: string, storage: () => R2) {
   const router = Router();
   router.use(requireAuth(secret));
   router.get('/', async (req, res) => {
@@ -72,12 +74,33 @@ export function collectionsRouter(pool: () => pg.Pool, secret: string) {
     }
   });
   router.delete('/:id', validate({ params }), async (req, res) => {
-    const result = await pool().query('DELETE FROM collections WHERE id = $1 AND user_id = $2 RETURNING id', [
-      req.params.id,
-      req.user!.id,
-    ]);
-    if (!result.rowCount) throw notFound();
-    res.sendStatus(204);
+    // Postgres cascades the file rows, but R2 objects must be removed explicitly or they are orphaned.
+    const client = await pool().connect();
+    try {
+      await client.query('BEGIN');
+      const owned = await client.query(
+        'SELECT id FROM collections WHERE id = $1 AND user_id = $2 FOR UPDATE',
+        [req.params.id, req.user!.id],
+      );
+      if (!owned.rowCount) throw notFound();
+      const files = await client.query(
+        'SELECT id FROM files WHERE collection_id = $1 AND user_id = $2 FOR UPDATE',
+        [req.params.id, req.user!.id],
+      );
+      for (const file of files.rows as { id: string }[])
+        await storage().deletePrefix(filePrefix(req.user!.id, file.id));
+      await client.query('DELETE FROM collections WHERE id = $1 AND user_id = $2', [
+        req.params.id,
+        req.user!.id,
+      ]);
+      await client.query('COMMIT');
+      res.sendStatus(204);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   });
   return router;
 }
