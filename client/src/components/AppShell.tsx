@@ -1,12 +1,55 @@
-import { useEffect, useRef, useState } from 'react';
-import { NavLink, Link, Outlet } from 'react-router-dom';
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { NavLink, Link, Outlet, useLocation } from 'react-router-dom';
 import { Library, MessageSquare, LogOut } from 'lucide-react';
 import { useAuth } from '../lib/auth';
+import { Logo } from './brand/Logo';
+
+type Box = { x: number; w: number };
+
+/**
+ * Vercel-style tabs: an underline that slides to the active tab, and a gray
+ * pill that follows the pointer between tabs while hovering.
+ */
+function useNavIndicators(pathname: string) {
+  const navRef = useRef<HTMLElement>(null);
+  const [active, setActive] = useState<Box | null>(null);
+  const [hover, setHover] = useState<Box | null>(null);
+  const [animate, setAnimate] = useState(false);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = navRef.current?.querySelector<HTMLElement>('.topbar-nav-link.active');
+      setActive(el ? { x: el.offsetLeft, w: el.offsetWidth } : null);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [pathname]);
+
+  // Only animate after the first placement so nothing flies in from the left edge.
+  useEffect(() => {
+    if (active && !animate) {
+      const raf = requestAnimationFrame(() => setAnimate(true));
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [active, animate]);
+
+  const onPointerOver = (event: ReactPointerEvent) => {
+    const link = (event.target as HTMLElement).closest<HTMLElement>('.topbar-nav-link');
+    if (link) setHover({ x: link.offsetLeft, w: link.offsetWidth });
+  };
+  const onPointerLeave = () => setHover(null);
+
+  return { navRef, active, hover, animate, onPointerOver, onPointerLeave };
+}
 
 export function AppShell() {
   const { user, signOut } = useAuth();
+  const location = useLocation();
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
+  const nav = useNavIndicators(location.pathname);
+  const section = location.pathname.split('/')[1] || 'library';
 
   useEffect(() => {
     if (!accountOpen) return;
@@ -33,13 +76,40 @@ export function AppShell() {
 
   return (
     <>
+      <a href="#main-content" className="skip-link">
+        Skip to content
+      </a>
       <header className="topbar">
         <div className="topbar-left">
-          <Link className="topbar-brand" to="/">
-            <span className="topbar-brand-mark">r</span>
-            <span>Recall</span>
+          <Link className="topbar-brand" to="/" aria-label="Recall home">
+            <Logo size={20} />
           </Link>
-          <nav aria-label="Main navigation" className="topbar-nav">
+          <span className="topbar-divider" aria-hidden="true">
+            /
+          </span>
+          <nav
+            aria-label="Main navigation"
+            className={`topbar-nav ${nav.animate ? 'is-animated' : ''}`}
+            ref={nav.navRef}
+            onPointerOver={nav.onPointerOver}
+            onPointerLeave={nav.onPointerLeave}
+          >
+            <span
+              className={`topbar-nav-hover ${nav.hover ? 'is-visible' : ''}`}
+              style={
+                nav.hover ? { transform: `translateX(${nav.hover.x}px)`, width: nav.hover.w } : undefined
+              }
+              aria-hidden="true"
+            />
+            <span
+              className="topbar-nav-underline"
+              style={
+                nav.active
+                  ? { transform: `translateX(${nav.active.x}px)`, width: nav.active.w }
+                  : { opacity: 0 }
+              }
+              aria-hidden="true"
+            />
             <NavLink to="/" end className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>
               <Library size={16} strokeWidth={1.75} />
               <span>Library</span>
@@ -91,7 +161,9 @@ export function AppShell() {
           )}
         </div>
       </header>
-      <Outlet />
+      <div id="main-content" key={section} className="page-transition">
+        <Outlet />
+      </div>
     </>
   );
 }

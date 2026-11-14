@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { Quote, Layers, Sparkles } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { GoogleSignIn } from '../components/GoogleSignIn';
 import { EmailSignIn } from '../components/EmailSignIn';
+import { Logo, LogoMark } from '../components/brand/Logo';
+import { AuthDemo } from '../components/brand/AuthDemo';
 
 export function AuthPage({ mocking }: { mocking: boolean }) {
   const { user } = useAuth();
@@ -16,41 +17,44 @@ export function AuthPage({ mocking }: { mocking: boolean }) {
   return (
     <main className="auth-page">
       <aside className="auth-aside">
+        <div className="auth-grid" aria-hidden="true" />
+
         <div className="auth-aside-top">
-          <Link to="/" className="topbar-brand">
-            <span className="topbar-brand-mark">r</span>
-            <span>Recall</span>
+          <Link to="/" className="topbar-brand" aria-label="Recall home">
+            <Logo size={22} />
           </Link>
         </div>
 
         <div className="auth-aside-content">
-          <h1 className="auth-aside-headline">Ask your documents anything.</h1>
-          <ul className="auth-features-list">
-            <li className="auth-feature-item">
-              <Quote className="auth-feature-icon" size={18} strokeWidth={1.75} />
-              <span>Cited answers with exact page numbers and timestamps</span>
-            </li>
-            <li className="auth-feature-item">
-              <Layers className="auth-feature-icon" size={18} strokeWidth={1.75} />
-              <span>Search across PDFs, images, audio, and video</span>
-            </li>
-            <li className="auth-feature-item">
-              <Sparkles className="auth-feature-icon" size={18} strokeWidth={1.75} />
-              <span>Visible reasoning steps you can inspect and verify</span>
-            </li>
-          </ul>
+          <h1 className="auth-aside-headline">
+            <span className="reveal-line" style={{ animationDelay: '40ms' }}>
+              Ask your documents
+            </span>
+            <span className="reveal-line" style={{ animationDelay: '140ms' }}>
+              anything.
+            </span>
+          </h1>
+          <p className="auth-aside-lede">
+            Upload PDFs, photos, recordings and videos. Get answers that point to the exact page or moment.
+          </p>
+
+          <AuthDemo />
         </div>
 
         <div className="auth-aside-footer">
-          <span>Research tool for deep reading and synthesis</span>
+          <span>Built for deep reading, research and recall</span>
         </div>
       </aside>
 
       <section className="auth-main">
         <div className="auth-card">
+          <span className="corner corner-tl" aria-hidden="true" />
+          <span className="corner corner-tr" aria-hidden="true" />
+          <span className="corner corner-bl" aria-hidden="true" />
+          <span className="corner corner-br" aria-hidden="true" />
           <div className="auth-card-header">
             <div className="auth-card-brand">
-              <span className="topbar-brand-mark">r</span>
+              <LogoMark size={36} />
             </div>
             <h2 className="auth-card-title">
               {register ? 'Create your Recall account' : 'Sign in to Recall'}

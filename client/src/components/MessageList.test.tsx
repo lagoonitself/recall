@@ -65,15 +65,15 @@ describe('MessageList', () => {
   ];
 
   it('renders user and assistant messages with markdown, attachments tiles, and avatar mark', () => {
-    render(<MessageList messages={mockMessages} />);
+    const { container } = render(<MessageList messages={mockMessages} />);
 
     // User message checks: content, attachment tile, no "YOU" card header
     expect(screen.getByText('Where is the coolant reservoir?')).toBeDefined();
     expect(screen.getByText('engine-bay.jpg')).toBeDefined();
     expect(screen.queryByText('YOU')).toBeNull();
 
-    // Assistant message checks: avatar mark 'r', no "RECALL AGENT" header
-    expect(screen.getByText('r')).toBeDefined();
+    // Assistant message checks: Recall logo mark avatar, no "RECALL AGENT" header
+    expect(container.querySelector('.assistant-avatar .logo-mark')).not.toBeNull();
     expect(screen.queryByText('RECALL AGENT')).toBeNull();
     expect(screen.getByText(/The coolant reservoir is on the right side/)).toBeDefined();
 
