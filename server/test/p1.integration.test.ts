@@ -50,7 +50,7 @@ suite('P1 integration on TEST_DATABASE_URL', () => {
   afterAll(async () => {
     if (migrated)
       await pool.query('DELETE FROM users WHERE email = ANY($1::text[])', [
-        [email, secondEmail, googleEmail],
+        [email, secondEmail, googleEmail, 'p1-race-' + suffix + '@example.com'],
       ]);
     await pool.end();
   });
@@ -136,10 +136,52 @@ suite('P1 integration on TEST_DATABASE_URL', () => {
     ).toBeNull();
     const bySub = await request(app).post('/api/auth/google').send({ credential: 'other' });
     expect(bySub.body.user.id).toBe(userId);
+    // The JWT returned by Google sign-in is a working session.
+    const session = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', 'Bearer ' + bySub.body.token);
+    expect(session.body.user.id).toBe(userId);
+    // A different Google account with the same email cannot take over the linked account.
+    const rival = createApp({
+      pool,
+      jwtSecret: secret,
+      googleClientId: 'test-client',
+      googleVerifier: async () => ({
+        sub: 'rival-' + suffix,
+        email,
+        email_verified: true,
+        iss: 'accounts.google.com',
+        aud: 'test-client',
+        iat: 1,
+        exp: 2,
+      }),
+    });
+    const takeover = await request(rival).post('/api/auth/google').send({ credential: 'x' });
+    expect(takeover.status).toBe(409);
+    // Concurrent first sign-ins for one new Google account resolve to the same user.
+    const racer = createApp({
+      pool,
+      jwtSecret: secret,
+      googleClientId: 'test-client',
+      googleVerifier: async () => ({
+        sub: 'race-' + suffix,
+        email: 'p1-race-' + suffix + '@example.com',
+        email_verified: true,
+        iss: 'accounts.google.com',
+        aud: 'test-client',
+        iat: 1,
+        exp: 2,
+      }),
+    });
+    const raced = await Promise.all(
+      [1, 2, 3].map(() => request(racer).post('/api/auth/google').send({ credential: 'x' })),
+    );
+    expect(raced.map((r) => r.status)).toEqual([200, 200, 200]);
+    expect(new Set(raced.map((r) => r.body.user.id)).size).toBe(1);
     const disabled = createApp({ pool, jwtSecret: secret });
     expect((await request(disabled).get('/api/auth/config')).body.googleClientId).toBeNull();
     expect((await request(disabled).post('/api/auth/google').send({ credential: 'x' })).status).toBe(404);
-  });
+  }, 30000);
   it('creates new users from Google', async () => {
     const isolated = createApp({
       pool,

@@ -522,7 +522,7 @@ Main components:
 
 ## 10. Security
 
-- Sign-in is Google only (D22); the server verifies Google's ID token and issues its own JWT, which expires in 7 days. No passwords are stored.
+- Sign-in is Google only (D22); the server verifies Google's ID token and issues its own JWT, which expires in 7 days. New accounts have no password; a legacy hash from before D22 is cleared when its email is linked to Google.
 - Every query is scoped by `user_id`. Signed R2 URLs are issued only after an ownership check, and expire in 10 minutes.
 - Zod validates every request. Uploads are checked by MIME type and size (50 MB per file). The signed PUT URL includes `Content-Length` and `Content-Type`, and `/complete` checks the stored object with `HEAD` before queuing it.
 - Per-user caps (storage quota, uploads per day, chat messages per minute) protect the shared API keys and the 10 GB R2 bucket.

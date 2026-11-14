@@ -31,7 +31,7 @@ P0 merged. A Neon project with `DATABASE_URL` in `server/.env` (user creates it)
 5. Rate limiter.
 
 ## Tests
-- Integration tests against a Neon **branch** (not main) or a local Postgres with pgvector: register → login → me; duplicate email → 409; collections CRUD; cross-user access → 404.
+- Integration tests against a Neon **branch** (not main) or a local Postgres with pgvector: Google sign-in (stubbed verifier) → JWT → me; link by email; second Google account on a linked email → 409; collections CRUD; cross-user access → 404.
 - `npm run db:migrate` twice is a no-op the second time.
 
 ## Skills
