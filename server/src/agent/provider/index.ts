@@ -1,4 +1,5 @@
 import { FakeProvider } from './fake.js';
+import { PendingProvider } from './pending.js';
 import type { LlmProvider } from './types.js';
 export { capabilities } from './capabilities.js';
 export { FakeProvider } from './fake.js';
@@ -14,6 +15,13 @@ export function getProviderConfig(env: NodeJS.ProcessEnv = process.env) {
 }
 export function getProvider(env: NodeJS.ProcessEnv = process.env): LlmProvider {
   const { provider } = getProviderConfig(env);
+  return selectProvider(provider);
+}
+export function getDescribeProvider(env: NodeJS.ProcessEnv = process.env): LlmProvider {
+  return selectProvider(env.DESCRIBE_PROVIDER || env.LLM_PROVIDER || 'fake');
+}
+function selectProvider(provider: string): LlmProvider {
   if (provider === 'fake') return new FakeProvider();
-  throw new Error('Unsupported LLM_PROVIDER; only fake is currently available');
+  if (['gemini', 'openrouter', 'opencode'].includes(provider)) return new PendingProvider(provider);
+  throw new Error('Unsupported LLM_PROVIDER or DESCRIBE_PROVIDER');
 }
