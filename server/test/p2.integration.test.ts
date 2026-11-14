@@ -13,17 +13,19 @@ const ready = Boolean(
   testUrl && process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY,
 );
 describe.skipIf(!ready)('P2 integration on test database and R2', () => {
-  if (testUrl === process.env.DATABASE_URL)
+  if (testUrl && testUrl === process.env.DATABASE_URL)
     throw new Error('TEST_DATABASE_URL must differ from DATABASE_URL');
-  const pool = createPool(testUrl!);
-  const storage = createR2();
+  const pool = ready ? createPool(testUrl!) : (null as unknown as ReturnType<typeof createPool>);
+  const storage = ready ? createR2() : (null as unknown as ReturnType<typeof createR2>);
   const secret = 'test-secret-'.repeat(4);
-  const app = createApp({
-    pool,
-    jwtSecret: secret,
-    storage,
-    fileLimits: { maxFileMb: 1, userQuotaMb: 1, uploadsPerDay: 3 },
-  });
+  const app = ready
+    ? createApp({
+        pool,
+        jwtSecret: secret,
+        storage,
+        fileLimits: { maxFileMb: 1, userQuotaMb: 1, uploadsPerDay: 3 },
+      })
+    : (null as unknown as ReturnType<typeof createApp>);
   const ids: string[] = [];
   let owner = '';
   let other = '';

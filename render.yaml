@@ -1,0 +1,67 @@
+services:
+  - type: web
+    name: recall-server
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: EMBED_MODEL
+        sync: false
+      - key: EMBED_DIM
+        sync: false
+      - key: EMBED_RPM
+        sync: false
+      - key: EMBED_CONCURRENCY
+        sync: false
+      - key: LLM_PROVIDER
+        sync: false
+      - key: DESCRIBE_PROVIDER
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENCODE_API_KEY
+        sync: false
+      - key: OPENCODE_BASE_URL
+        sync: false
+      - key: AGENT_MODEL
+        sync: false
+      - key: DESCRIBE_MODEL
+        sync: false
+      - key: LLM_CONCURRENCY
+        sync: false
+      - key: DESCRIBE_BATCH
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: AUDIO_PIECE_SEC
+        sync: false
+      - key: WORKER_CONCURRENCY
+        sync: false
+      - key: RUN_WORKER
+        sync: false
+      - key: MAX_FILE_MB
+        sync: false
+      - key: USER_QUOTA_MB
+        sync: false
+      - key: UPLOADS_PER_DAY
+        sync: false
+      - key: CHAT_PER_MIN
+        sync: false

@@ -4,7 +4,8 @@
   "workspaces": [
     "client",
     "server",
-    "shared"
+    "shared",
+    "keepalive"
   ],
   "scripts": {
     "dev": "npm run build -w @app/shared && concurrently -k \"npm run dev -w @app/shared\" \"npm run dev -w @app/server\" \"npm run dev -w @app/client\"",
