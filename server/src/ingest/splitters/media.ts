@@ -103,6 +103,25 @@ export async function splitAudio(
   return pieces;
 }
 
+/** Mono MP3 of a video's audio track, or undefined when the video has no audio stream. */
+export async function extractAudioTrack(path: string, directory: string): Promise<string | undefined> {
+  const { stdout } = await run('ffprobe', [
+    '-v',
+    'error',
+    '-select_streams',
+    'a',
+    '-show_entries',
+    'stream=index',
+    '-of',
+    'csv=p=0',
+    path,
+  ]);
+  if (!stdout.trim()) return undefined;
+  const output = join(directory, 'audio-track.mp3');
+  await run('ffmpeg', ['-v', 'error', '-i', path, '-vn', '-ac', '1', '-b:a', '64k', output]);
+  return output;
+}
+
 export async function splitVideo(path: string, directory: string): Promise<MediaPiece[]> {
   const duration = await probeDuration(path);
   if (duration > 80) throw new Error('Video exceeds the 80 second limit');

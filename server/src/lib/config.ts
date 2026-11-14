@@ -26,9 +26,14 @@ export const ConfigSchema = z
     EMBED_RPM: positiveInt.default(60),
     EMBED_CONCURRENCY: positiveInt.default(2),
 
-    LLM_PROVIDER: z.string().min(1).default('fake'),
-    LLM_API_KEY: optionalString,
-    LLM_BASE_URL: optionalString,
+    LLM_PROVIDER: z.enum(['fake', 'gemini', 'openrouter', 'opencode']).default('fake'),
+    DESCRIBE_PROVIDER: z.preprocess(
+      (v) => (v === '' ? undefined : v),
+      z.enum(['fake', 'gemini', 'openrouter', 'opencode']).optional(),
+    ),
+    OPENROUTER_API_KEY: optionalString,
+    OPENCODE_API_KEY: optionalString,
+    OPENCODE_BASE_URL: optionalString,
     AGENT_MODEL: optionalString,
     DESCRIBE_MODEL: optionalString,
     LLM_CONCURRENCY: positiveInt.default(2),
@@ -41,19 +46,36 @@ export const ConfigSchema = z
 
     AUDIO_PIECE_SEC: positiveInt.default(150),
     WORKER_CONCURRENCY: positiveInt.default(1),
+    /** Run the ingestion worker inside the API process (Render free has one service). */
+    RUN_WORKER: z
+      .enum(['true', 'false', ''])
+      .default('true')
+      .transform((v) => v !== 'false'),
     MAX_FILE_MB: positiveInt.default(50),
     USER_QUOTA_MB: positiveInt.default(500),
     UPLOADS_PER_DAY: positiveInt.default(100),
     CHAT_PER_MIN: positiveInt.default(6),
   })
   .superRefine((c, ctx) => {
-    if (c.LLM_PROVIDER === 'fake') return;
-    for (const key of ['LLM_API_KEY', 'AGENT_MODEL', 'DESCRIBE_MODEL'] as const) {
+    const describeProvider = c.DESCRIBE_PROVIDER ?? c.LLM_PROVIDER;
+    const required = new Set<
+      'OPENROUTER_API_KEY' | 'OPENCODE_API_KEY' | 'OPENCODE_BASE_URL' | 'AGENT_MODEL' | 'DESCRIBE_MODEL'
+    >();
+    for (const provider of [c.LLM_PROVIDER, describeProvider]) {
+      if (provider === 'openrouter') required.add('OPENROUTER_API_KEY');
+      if (provider === 'opencode') {
+        required.add('OPENCODE_API_KEY');
+        required.add('OPENCODE_BASE_URL');
+      }
+    }
+    if (c.LLM_PROVIDER !== 'fake') required.add('AGENT_MODEL');
+    if (describeProvider !== 'fake') required.add('DESCRIBE_MODEL');
+    for (const key of required) {
       if (!c[key]) {
         ctx.addIssue({
           code: 'custom',
           path: [key],
-          message: `${key} is required when LLM_PROVIDER is not "fake"`,
+          message: `${key} is required for the selected provider`,
         });
       }
     }

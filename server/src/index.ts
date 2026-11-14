@@ -12,6 +12,9 @@ import { collectionsRouter } from './routes/collections.js';
 import { filesRouter, type FileLimits } from './routes/files.js';
 import { chunksRouter } from './routes/chunks.js';
 import { createR2, type R2 } from './lib/r2.js';
+import { embedMedia, embedText } from './lib/embed.js';
+import { getDescribeProvider } from './agent/provider/index.js';
+import { startWorker } from './ingest/worker.js';
 
 export type AppOptions = {
   corsOrigin?: string;
@@ -55,7 +58,7 @@ export function createApp(options: AppOptions = {}) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const config = loadConfig();
-  createApp({
+  const app = createApp({
     corsOrigin: config.CORS_ORIGIN,
     jwtSecret: config.JWT_SECRET,
     googleClientId: config.GOOGLE_CLIENT_ID,
@@ -64,7 +67,30 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       userQuotaMb: config.USER_QUOTA_MB,
       uploadsPerDay: config.UPLOADS_PER_DAY,
     },
-  }).listen(config.PORT, () => {
+  });
+  const server = app.listen(config.PORT, () => {
     console.log(`Recall API listening on ${config.PORT}`);
   });
+  const worker = config.RUN_WORKER
+    ? startWorker(
+        {
+          pool: getPool(),
+          storage: createR2(),
+          embedText,
+          embedMedia,
+          describer: { provider: getDescribeProvider(), model: config.DESCRIBE_MODEL ?? 'fake' },
+          audioPieceSec: config.AUDIO_PIECE_SEC,
+          describeBatch: config.DESCRIBE_BATCH,
+        },
+        { concurrency: config.WORKER_CONCURRENCY },
+      )
+    : undefined;
+  if (worker) console.log(`Ingestion worker started (concurrency ${config.WORKER_CONCURRENCY})`);
+  // Render sends SIGTERM on deploy: finish the current piece, requeue the job, then exit.
+  for (const signal of ['SIGTERM', 'SIGINT'] as const)
+    process.once(signal, () => {
+      console.log(`${signal}: shutting down`);
+      server.close();
+      void (worker?.stop() ?? Promise.resolve()).finally(() => process.exit(0));
+    });
 }
