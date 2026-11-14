@@ -2,13 +2,13 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by Claude (planning session)
+Last updated: 2026-11-14 by Claude (orchestrator)
 
 ---
 
 ## Current state
 
-Planning is done. No code exists yet. The repo is not a git repository yet (P0 runs `git init`).
+P0 is merged into `main` (built by Terra, reviewed and fixed by Claude). Google sign-in added to the contract (D19). Four lanes start now: P1, P3, P5, P8, each a GPT-6.1 Terra agent in its own worktree.
 
 ## Part status
 
@@ -16,15 +16,15 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 | Part | Status | Taken by | Branch | Notes |
 |---|---|---|---|---|
-| P0 Foundation + contract | not started | — | — | Next to start |
-| P1 DB, auth, collections | not started | — | — | |
+| P0 Foundation + contract | done | Terra / review Claude | part/p0-foundation | Docker build unverified (no daemon) |
+| P1 DB, auth, collections | in progress | GPT-6.1 Terra | part/p1-db-auth | Includes Google sign-in (D19) |
 | P2 Storage + upload | not started | — | — | |
-| P3 Embedding client + spike | not started | — | — | Needs `GEMINI_API_KEY` |
+| P3 Embedding client + spike | in progress | GPT-6.1 Terra | part/p3-embedding | |
 | P4 Ingestion worker | not started | — | — | |
-| P5 LLM provider | not started | — | — | Real adapter **blocked** on LLM choice; fake is not |
+| P5 LLM provider | in progress | GPT-6.1 Terra | part/p5-llm-provider | Fake only; real adapter blocked on LLM choice |
 | P6 Retrieval | not started | — | — | |
 | P7 Agent + chat API | not started | — | — | |
-| P8 FE library | not started | — | — | |
+| P8 FE library | in progress | GPT-6.1 Terra | part/p8-fe-library | Includes Google sign-in button (D19) |
 | P9 FE chat | not started | — | — | |
 | P10 Deploy + ops | not started | — | — | Needs Neon, R2, Render, Vercel, Cloudflare accounts |
 | P11 Review + QA | not started | — | — | |
@@ -34,22 +34,27 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 - [ ] Choose the LLM (see Pending in DECISIONS.md).
 - [ ] Check Gemini key limits for `gemini-embedding-2` in AI Studio.
+- [ ] Create a Google OAuth **Web client ID** (Google Cloud Console → APIs & Services → Credentials). Authorized JavaScript origins: `http://localhost:5173` and the Vercel URL. Then set `GOOGLE_CLIENT_ID`.
 - [ ] Create accounts / keys when P0–P3 need them: Gemini, Neon, Cloudflare (R2 + Workers), Render, Vercel, LLM provider. Put them in `server/.env` yourself; agents never ask for keys in chat.
 
 ## Next steps
 
-1. P0: `git init`, workspaces, `shared/` contract, env template, health route.
-2. After P0 merges, start the four lanes in parallel (see PLAN.md → Lanes).
+1. Lanes running: P1, P3, P5, P8. Claude reviews each PR.
+2. Then P2 after P1, P6 after P3, P9 after P8, P4 when P2+P3+P5 are in `main`.
 
 ## Known problems
 
-None yet.
+Docker Desktop Linux engine was unavailable during P0 verification. The install reports three development dependency vulnerabilities; `npm audit --omit=dev` reports zero.
 
 ---
 
 ## Session log
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
+
+### 2026-11-14 · Claude · P0 review + lane start
+- Finished the P0 review: config fix for real `.env`, malformed JSON → 400, query/param validation, no R2 keys in the contract, min password 8. Prettier added.
+- Added Google sign-in to the contract and schema docs (D19). Merged P0 into `main`, started four Terra lanes.
 
 ### 2026-11-14 · Claude · planning
 - Read the original architecture; checked facts (gemini-embedding-2 GA with 6 PDF pages, 8,192 tokens, 80 s video; Neon free 1 GB).
