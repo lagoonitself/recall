@@ -39,6 +39,7 @@ export function fileResponse(row: {
   pieces_done: number;
   error: string | null;
   created_at: Date;
+  preview_chunk_id?: string | null;
 }) {
   return {
     id: row.id,
@@ -53,5 +54,6 @@ export function fileResponse(row: {
     piecesDone: row.pieces_done,
     error: row.error,
     createdAt: row.created_at.toISOString(),
+    previewChunkId: row.preview_chunk_id ?? null,
   };
 }

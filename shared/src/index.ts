@@ -66,6 +66,7 @@ export const FileSchema = z.object({
   piecesDone: z.number().int().nonnegative(),
   error: z.string().nullable(),
   createdAt: date,
+  previewChunkId: id.nullable().optional(),
 });
 export type File = z.infer<typeof FileSchema>;
 export const UploadUrlRequestSchema = z.object({

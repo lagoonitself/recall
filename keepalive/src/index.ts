@@ -45,13 +45,15 @@ export async function pingHealth(targetUrl?: string): Promise<PingResult> {
 }
 
 export default {
-  async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     console.log(`[keepalive] Cron ${event.cron} triggered at ${new Date(event.scheduledTime).toISOString()}`);
+    void ctx; // the returned promise keeps the invocation alive until the ping finishes
     await pingHealth(env.TARGET_URL);
   },
 
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     void request;
+    void ctx;
     const result = await pingHealth(env.TARGET_URL);
     return new Response(JSON.stringify(result), {
       status: result.ok ? 200 : 502,

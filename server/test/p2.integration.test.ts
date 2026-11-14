@@ -12,20 +12,19 @@ const testUrl = process.env.TEST_DATABASE_URL;
 const ready = Boolean(
   testUrl && process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY,
 );
-describe.skipIf(!ready)('P2 integration on test database and R2', () => {
+const suite = ready ? describe : describe.skip;
+suite('P2 integration on test database and R2', () => {
   if (testUrl && testUrl === process.env.DATABASE_URL)
     throw new Error('TEST_DATABASE_URL must differ from DATABASE_URL');
-  const pool = ready ? createPool(testUrl!) : (null as unknown as ReturnType<typeof createPool>);
-  const storage = ready ? createR2() : (null as unknown as ReturnType<typeof createR2>);
+  const pool = ready ? createPool(testUrl!) : createPool('postgres://localhost/unused');
+  const storage = ready ? createR2() : ({} as ReturnType<typeof createR2>);
   const secret = 'test-secret-'.repeat(4);
-  const app = ready
-    ? createApp({
-        pool,
-        jwtSecret: secret,
-        storage,
-        fileLimits: { maxFileMb: 1, userQuotaMb: 1, uploadsPerDay: 3 },
-      })
-    : (null as unknown as ReturnType<typeof createApp>);
+  const app = createApp({
+    pool,
+    jwtSecret: secret,
+    storage,
+    fileLimits: { maxFileMb: 1, userQuotaMb: 1, uploadsPerDay: 3 },
+  });
   const ids: string[] = [];
   let owner = '';
   let other = '';
@@ -161,29 +160,73 @@ describe.skipIf(!ready)('P2 integration on test database and R2', () => {
       (await request(app).post('/api/files/upload-url').set('Authorization', auth).send(body)).status,
     ).toBe(429);
   }, 60000);
-  it('deleting a collection removes its files from R2', async () => {
+  it('deleting a collection removes all files, chunks, originals, pieces and thumbnails from R2 even if missing', async () => {
     const doomed = await pool.query('INSERT INTO collections(user_id,name) VALUES ($1,$2) RETURNING id', [
       owner,
-      'Doomed',
+      'Doomed Cascade',
     ]);
-    const fileId = randomUUID();
-    const key = `users/${owner}/files/${fileId}/original.txt`;
+    const colId = doomed.rows[0].id;
+    const file1 = randomUUID();
+    const file2 = randomUUID();
+
+    const orig1 = `users/${owner}/files/${file1}/original.txt`;
+    const piece1 = `users/${owner}/files/${file1}/pieces/0.txt`;
+    const thumb1 = `users/${owner}/files/${file1}/thumbs/0.jpg`;
+
+    const orig2 = `users/${owner}/files/${file2}/original.pdf`;
+    const piece2 = `users/${owner}/files/${file2}/pieces/0.pdf`;
+    const thumb2 = `users/${owner}/files/${file2}/thumbs/0.jpg`;
+
     await pool.query(
       `INSERT INTO files(id,user_id,collection_id,name,mime_type,modality,size_bytes,r2_key,status)
-       VALUES ($1,$2,$3,'a.txt','text/plain','text',1,$4,'queued')`,
-      [fileId, owner, doomed.rows[0].id, key],
+       VALUES ($1,$2,$3,'a.txt','text/plain','text',1,$4,'ready'),
+              ($5,$2,$3,'b.pdf','application/pdf','pdf',1,$6,'ready')`,
+      [file1, owner, colId, orig1, file2, orig2],
     );
-    await storage.put(key, Buffer.from('x'), 'text/plain');
-    await storage.put(`users/${owner}/files/${fileId}/pieces/0.txt`, Buffer.from('x'), 'text/plain');
+
+    await storage.put(orig1, Buffer.from('x'), 'text/plain');
+    await storage.put(piece1, Buffer.from('x'), 'text/plain');
+    await storage.put(thumb1, Buffer.from('x'), 'image/jpeg');
+
+    await storage.put(orig2, Buffer.from('y'), 'application/pdf');
+    await storage.put(piece2, Buffer.from('y'), 'application/pdf');
+    // Note: thumb2 is intentionally NOT put into R2 to verify missing/404 objects don't fail deletion
+
+    const c1 = await pool.query(
+      `INSERT INTO chunks(file_id,user_id,collection_id,modality,seq,r2_key,thumb_r2_key,embedding)
+       VALUES ($1,$2,$3,'text',0,$4,$5,$6::halfvec) RETURNING id`,
+      [file1, owner, colId, piece1, thumb1, `[${Array(1536).fill(0.1).join(',')}]`],
+    );
+    const c2 = await pool.query(
+      `INSERT INTO chunks(file_id,user_id,collection_id,modality,seq,r2_key,thumb_r2_key,embedding)
+       VALUES ($1,$2,$3,'pdf',0,$4,$5,$6::halfvec) RETURNING id`,
+      [file2, owner, colId, piece2, thumb2, `[${Array(1536).fill(0.1).join(',')}]`],
+    );
+
+    const filesRes = await request(app).get(`/api/files?collectionId=${colId}`).set('Authorization', auth);
+    expect(filesRes.status).toBe(200);
+    const f1Res = filesRes.body.files.find((f: { id: string }) => f.id === file1);
+    const f2Res = filesRes.body.files.find((f: { id: string }) => f.id === file2);
+    expect(f1Res.previewChunkId).toBe(c1.rows[0].id);
+    expect(f2Res.previewChunkId).toBe(c2.rows[0].id);
+
     expect(
-      (await request(app).delete(`/api/collections/${doomed.rows[0].id}`).set('Authorization', otherAuth))
-        .status,
+      (await request(app).delete(`/api/collections/${colId}`).set('Authorization', otherAuth)).status,
     ).toBe(404);
-    expect((await storage.head(key)).ContentLength).toBe(1);
-    expect(
-      (await request(app).delete(`/api/collections/${doomed.rows[0].id}`).set('Authorization', auth)).status,
-    ).toBe(204);
-    await expect(storage.head(key)).rejects.toMatchObject({ $metadata: { httpStatusCode: 404 } });
-    expect((await pool.query('SELECT 1 FROM files WHERE id = $1', [fileId])).rowCount).toBe(0);
+
+    expect((await storage.head(orig1)).ContentLength).toBe(1);
+    expect((await request(app).delete(`/api/collections/${colId}`).set('Authorization', auth)).status).toBe(
+      204,
+    );
+
+    expect((await pool.query('SELECT 1 FROM collections WHERE id = $1', [colId])).rowCount).toBe(0);
+    expect((await pool.query('SELECT 1 FROM files WHERE collection_id = $1', [colId])).rowCount).toBe(0);
+    expect((await pool.query('SELECT 1 FROM chunks WHERE collection_id = $1', [colId])).rowCount).toBe(0);
+
+    await expect(storage.head(orig1)).rejects.toMatchObject({ $metadata: { httpStatusCode: 404 } });
+    await expect(storage.head(piece1)).rejects.toMatchObject({ $metadata: { httpStatusCode: 404 } });
+    await expect(storage.head(thumb1)).rejects.toMatchObject({ $metadata: { httpStatusCode: 404 } });
+    await expect(storage.head(orig2)).rejects.toMatchObject({ $metadata: { httpStatusCode: 404 } });
+    await expect(storage.head(piece2)).rejects.toMatchObject({ $metadata: { httpStatusCode: 404 } });
   }, 60000);
 });

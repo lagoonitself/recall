@@ -2,13 +2,13 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by Antigravity (P10 deploy-prep)
+Last updated: 2026-11-14 by Claude (P10 prep review)
 
 ---
 
 ## Current state
 
-P0-P6 and P8 are done. P10 deployment preparation is completed on branch `part/p10-deploy-prep` (all deployment configurations, Dockerfile, keepalive worker, and deploy documentation staged and verified locally; awaiting user accounts for live deployment).
+P0–P9 are done and merged. P10 deploy prep (Dockerfile, render.yaml, vercel.json, keep-alive Worker, docs/DEPLOY.md) is merged; the live deploy waits on the user's accounts. A first local end-to-end run (test DB, Gemini, real R2) passed.
 
 ## Part status
 
@@ -18,15 +18,15 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 |---|---|---|---|---|
 | P0 Foundation + contract | done | Terra / review Claude | part/p0-foundation | Docker build unverified (no daemon) |
 | P1 DB, auth, collections | done | GPT-6.1 Terra | part/p1-db-auth | Includes Google sign-in (D19) |
-| P2 Storage + upload | done | GPT-6.1 Terra / review Claude | part/p2-storage-upload | Signed-PUT replay accepted as risk (D23) |
+| P2 Storage + upload | done | GPT-6.1 Terra / review Claude | part/p2-storage-upload | Signed-PUT replay accepted as risk (D23); collection delete R2 cleanup fixed |
 | P3 Embedding client + spike | done | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D21 |
 | P4 Ingestion worker | done | Terra (splitters) / Claude (worker, pipeline, describe, tests) | part/p4-ingestion | In-process worker (`RUN_WORKER`), retries + stale-lock reclaim, describe fallbacks |
 | P5 LLM provider | done | GPT-6.1 Terra / review Claude | part/p5b-llm-adapters | gemini, openrouter (free models), opencode (needs OpenCode Go) — D24 |
 | P6 Retrieval | done | GPT-6.1 Terra / review Claude | part/p6-retrieval | Hybrid vector + full-text with RRF; HNSW iterative scan |
-| P7 Agent + chat API | not started | — | — | |
-| P8 FE library | done | GPT-6.1 Terra / review Claude | part/p8-fe-library | Google-only sign-in; MSW mocks in dev; real Google popup still to be clicked through by the user |
-| P9 FE chat | not started | — | — | |
-| P10 Deploy + ops | in review | Antigravity | part/p10-deploy-prep | prep only: docker verified, render/vercel/keepalive files staged, waiting on user accounts for live deploy |
+| P7 Agent + chat API | done | Claude / review Gemini 3.8 Flash | part/p7-agent-chat | Loop, 3 tools, SSE, conversations, attachments, citation filter, persistence, rate limit; live Gemini check passed (D25) |
+| P8 FE library | done | GPT-6.1 Terra / review Claude | part/p8-fe-library | Google-only sign-in; MSW mocks in dev; file previews & modal complete |
+| P9 FE chat | done | Gemini 3.8 Flash / review Claude | part/p9-fe-chat | Merged (#10); markdown sanitized with DOMPurify by Claude |
+| P10 Deploy + ops | in progress | Gemini 3.8 Flash (prep) / review Claude | part/p10-deploy-prep | Prep merged: Docker image verified, render/vercel/keepalive staged; live deploy waits on user accounts |
 | P11 Review + QA | not started | — | — | |
 | P12 Docs + demo | not started | — | — | |
 
@@ -43,14 +43,16 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 ## Next steps
 
-1. Running: P8, P5 real adapters. Claude reviews P6 and the other PRs.
-2. Next: P9 after P8, P4 when P2 is in `main`, P7 when P2 + P6 are in `main`.
+1. Merge #14 (chat state fixes from the first end-to-end run) after its review.
+2. P10 live deploy: the user creates the accounts and sets env on Render/Vercel/Cloudflare following `docs/DEPLOY.md`; then smoke test on the live URL.
+3. Not yet checked in a real browser: voice-note and photo questions, the real Google sign-in popup.
+4. Then P11 review/QA, P12 README + demo.
 
 ## Known problems
 
 P6 needs ffmpeg for audio attachments and pgvector 0.8+ for iterative scans. The small test fixture favored the scope index; HNSW use was confirmed with planner overrides, not production-size benchmarks.
 
-P2 signed PUT URLs remain usable until expiry: a client can overwrite the verified original after completion or recreate it after deletion. The existing collection DELETE cascades file rows without deleting R2 objects. Resolve both lifecycle issues before production/merge; P2's file DELETE alone cannot prevent them. Integration tests use the test database and real R2, cleaning their test prefixes.
+P2 signed PUT URLs remain usable until expiry: a client can overwrite the verified original after completion or recreate it after deletion. Signed-PUT replay is documented in D23. Collection DELETE now removes all R2 objects (originals, pieces, thumbs) best-effort after committing the DB transaction. Integration tests use the test database and real R2, cleaning their test prefixes.
 
 Docker Desktop Linux engine was unavailable during P0 verification. The install reports three development dependency vulnerabilities; `npm audit --omit=dev` reports zero.
 
@@ -58,7 +60,9 @@ P5 `npm install` reported 10 vulnerabilities (8 moderate, 2 critical). Gemini li
 
 P3 did not establish actual maximum fully processed duration/pages: over-limit requests returned vectors without proving completeness. Google documents that video audio is not processed; P4 must ingest it separately. Dependency install reports three vulnerabilities (one moderate, two critical); audit before deployment.
 
-P8 file previews are not implemented: the shared file response exposes no chunk IDs, while the media endpoint requires one. Real frontend uploads and a completed Google login still need manual verification; the real Google button renders locally. The HEIC converter is a large lazy-loaded chunk.
+Real frontend uploads and a completed Google login still need manual verification; the real Google button renders locally. The HEIC converter is a large lazy-loaded chunk.
+
+P7: the provider is not interruptible mid-await, so a disconnect is noticed at the provider's next event. Gemini `gemini-3.5-flash-lite` streamed no reasoning in the live check (only tool steps showed); check thought settings in the Gemini adapter if visible reasoning matters for the demo. `maxMediaPartsPerRequest` is 1 for every model in `capabilities.ts`, so `open_sources` sends one real media piece per call and falls back for the rest; raise it per model once verified. Conversations have no DELETE route yet, and chat attachments under `users/{u}/attachments/` are not removed with anything but the user.
 
 ---
 
@@ -66,7 +70,7 @@ P8 file previews are not implemented: the shared file response exposes no chunk 
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
 
-### 2026-11-14 · Antigravity · P10 deploy-prep completion
+### 2026-11-14 · Gemini 3.8 Flash (review Claude) · P10 deploy-prep completion
 - Prepared all P10 deployment and operations deliverables on branch `part/p10-deploy-prep` without touching live cloud accounts or secrets.
 - Dockerfile: Re-engineered into a 3-stage multi-stage build (`build`, `prod-deps`, `runtime`). Installed `ffmpeg` and `poppler-utils` (`pdftoppm`), set non-root user `node` (uid 1000), verified image build and container startup via Docker Desktop Linux engine. Startup command applies pending migrations then executes server (`node server/dist/db/migrate.js && exec node server/dist/index.js`).
 - `render.yaml`: Created blueprint for free Docker web service with `/api/health` check and all environment variables from ARCHITECTURE.md §15 marked `sync: false`.
@@ -75,6 +79,31 @@ Newest at the top. One entry per working session. Keep each to a few lines: what
 - `docs/DEPLOY.md`: Created comprehensive step-by-step deploy instructions covering Neon, Cloudflare R2 CORS, Render, Vercel, Google OAuth, Keepalive Worker with `cf` CLI, and complete 10-step post-deploy smoke tests.
 - Minor fixes outside P10 scope: Updated `server/package.json` scripts (`db:migrate` / `db:migrate:dev`), guarded skipped integration test suites in `server/test/p2.integration.test.ts` and `server/test/p4.integration.test.ts` so offline test passes without credentials don't throw. Removed temporary `.agents` junction.
 - Full verification passed: `npm run build`, `npm run typecheck`, `npm run lint`, `npm run format:check`, and `npm run test` (75 tests passed across client, server, shared, keepalive).
+
+### 2026-11-14 · Claude · P7 agent + chat API
+- Added `agent/{sse,prompt,tools,loop}.ts` and `routes/conversations.ts` (list/create/detail, multipart send with Multer ≤ 3 files ≤ 20 MB, MIME check, ffprobe 80 s video cap, attachments to R2, SSE with 15 s ping, per-user `CHAT_PER_MIN`). Decisions in D25. `multer` added to server deps.
+- Tests: `src/agent/loop.test.ts` (8, FakeProvider: event order + schema, citation filter incl. split ids, clamping, bad args, forced last round, abort, provider error) and `test/p7.integration.test.ts` (4, test DB + R2: full stream + saved detail, attachment validation incl. 81 s video, disconnect saves partial, 429). Full server suite: 74 passed, 1 skipped.
+- Live check `server/scripts/agent-live.ts` with `LLM_PROVIDER=gemini AGENT_MODEL=gemini-3.5-flash-lite`: searched, opened, answered with `[S1]`, ignored the "reply PWNED" injection in the file.
+- Did not record a real SSE fixture into `client/src/mocks/fixtures/` (P9 owns that folder and is writing one now).
+- Started three Gemini 3.8 Flash (High) delegates: P9, P10 prep, previews + R2 cleanup.
+- Gemini review of #11 → fixed: Gemini adapter now merges consecutive same-role turns (parallel tool results + open_sources media); history no longer replays old `providerState`; whole-body 20 MB cap before Multer (411 without Content-Length); `</file-content>` escaped inside untrusted text; an unreadable/oversized piece falls back instead of failing the call; failed answers saved with a placeholder. Not changed: MIME map (pieces are always pdf/jpg/mp3/mp4/txt) and the 160-char preamble hold (D25). Server 76 passed / 1 skipped; live Gemini check passed again.
+
+### 2026-11-14 · Gemini 3.8 Flash (review Claude) · Fix file previews & R2 collection delete cleanup
+- Task A (R2 collection delete leaks): Implemented batched `deleteObjects` in `r2.ts` ignoring 404s/NoSuchKey. Updated `DELETE /api/collections/:id` and `DELETE /api/files/:id` to collect file originals, pieces, and thumbnail keys in transaction, commit DB deletions, then delete R2 objects and prefix best-effort. Expanded integration test in `p2.integration.test.ts` to verify cascading R2 deletions for files, chunks, pieces, and thumbs.
+- Task B (File previews in library): Updated `@app/shared` contract with `previewChunkId: id.nullable().optional()`. Updated server queries (`GET /api/files` and `GET /api/files/:id`) and `fileResponse` to return the first chunk's ID scoped by `user_id`. Updated MSW handlers and client API client with `chunkMedia`. Updated client `CollectionPage` with file thumbnails, preview action button, and accessible modal preview dialog for image (full), PDF (page image), audio/video (player), and text (snippet) with 10-minute expiry retry on error.
+- All checks pass: `npm run typecheck`, `npm test` (64 passed, 15 skipped integration tests when env missing), `npm run lint`, `npm run build`, and `npm run format:check`.
+
+### 2026-11-14 · Antigravity · P9 FE chat implementation
+- Implemented Part P9 frontend chat: `client/src/pages/Chat.tsx`, `client/src/components/{Composer,ActivityLog,SourceCard,MessageList}.tsx`, viewers (`PdfViewer`, `MediaViewer`, `ImageViewer`, `TextViewer`), `client/src/lib/sse.ts`, fixture `chat-demo.sse`, conversation MSW handlers, and route/nav wiring in `main.tsx` and `AppShell.tsx`.
+- SSE parser (`client/src/lib/sse.ts`) handles split chunks across arbitrary byte boundaries, multi-line data joined by `\n`, `: ping` comment lines/heartbeats, cancellation via AbortSignal, and schema validation with `@app/shared` `SseEventSchema`.
+- Composer supports text with auto-resizing, up to 3 attachments (≤ 20 MB total), photo picker, file picker, MediaRecorder voice notes with live timer (`00:05`) and cancel/save controls (supports Chrome `audio/webm` and Safari `audio/mp4`), HEIC to JPEG conversion (`heic2any`), video duration checks (≤ 80 s), and active stream abort button.
+- ActivityLog collapsible summary displays live step counts, total duration in seconds, live pulsing indicator, and step breakdown (reasoning delta, tool call compact args, tool results, and opened sources).
+- MessageList renders markdown with citation chips `[S1]`, `[S2]` that navigate and expand the corresponding `SourceCard`. Non-streaming messages are memoized (`React.memo`) so only the streaming message re-renders per token. Polite aria-live announcements for screen readers.
+- In-place source viewers: PDF page viewer (pdfjs-dist canvas with thumbnail first), audio/video players starting at `location.startSec` with quick-seek badges and automatic URL renewal, image lightbox modal with keyboard Esc/backdrop close, and text passage viewer with `<mark>` highlight.
+- MSW mock handlers stream the `chat-demo.sse` fixture with 60ms chunk delays in development.
+- Vitest tests: 30 tests in 7 test files pass (`sse.test.ts`, `ActivityLog.test.tsx`, `SourceCard.test.tsx`, `Composer.test.tsx`, `MessageList.test.tsx`, `GoogleSignIn.test.tsx`, `UploadDropzone.test.tsx`).
+- Root quality gates passed: `npm run typecheck`, `npm test -w @app/client`, `npm run lint`, `npm run format:check`, `npm run build -w @app/shared`, and `npm run build -w @app/client`.
+- Note for P7 (Agent + chat API): Backend should stream events matching `SseEventSchema` with `text/event-stream` and accept multipart FormData `text` and `files` on `POST /api/conversations/:id/messages`. Source media should be accessible via `GET /api/chunks/:chunkId/media`.
 
 ### 2026-11-14 · Claude · P4 completion
 - Terra's agent stopped after the splitters. Added the worker (claim with SKIP LOCKED, 15-min stale-lock reclaim, 3 attempts with 30 s/2 min/8 min backoff, PermanentError for unreadable files, SIGTERM requeue), the pipeline (stream original to /tmp, split, store pieces + thumbs in R2, embed, describe with §4.3 fallbacks, idempotent chunk insert, progress), and tests (all five modalities on the test DB + R2, reclaim without duplicates, retry/permanent failure).

@@ -13,6 +13,11 @@ import {
   CreateCollectionRequestSchema,
   UpdateCollectionRequestSchema,
   UploadUrlRequestSchema,
+  ConversationsResponseSchema,
+  ConversationResponseSchema,
+  ConversationDetailResponseSchema,
+  CreateConversationRequestSchema,
+  MediaResponseSchema,
 } from '@app/shared';
 const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 let token = localStorage.getItem('recall.token');
@@ -79,6 +84,15 @@ export const api = {
     }),
   complete: (id: string) => request(`/files/${id}/complete`, FileResponseSchema, { method: 'POST' }),
   deleteFile: (id: string) => remove(`/files/${id}`),
+  conversations: () => request('/conversations', ConversationsResponseSchema),
+  createConversation: (collectionId?: string | null) =>
+    request('/conversations', ConversationResponseSchema, {
+      method: 'POST',
+      body: body(CreateConversationRequestSchema.parse({ collectionId })),
+    }),
+  conversation: (id: string) => request(`/conversations/${id}`, ConversationDetailResponseSchema),
+  chunkMedia: (chunkId: string, thumbnail?: boolean) =>
+    request(`/chunks/${chunkId}/media${thumbnail ? '?thumbnail=true' : ''}`, MediaResponseSchema),
 };
 async function remove(path: string) {
   const headers = new Headers();
