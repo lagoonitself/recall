@@ -3,6 +3,8 @@ import {
   CreateCollectionRequestSchema,
   UpdateCollectionRequestSchema,
   GoogleLoginRequestSchema,
+  LoginRequestSchema,
+  RegisterRequestSchema,
   UploadUrlRequestSchema,
   CreateConversationRequestSchema,
   type Collection,
@@ -136,6 +138,17 @@ export const handlers = [
   http.get('*/api/auth/config', () =>
     HttpResponse.json({ googleClientId: 'mock-client-id.apps.googleusercontent.com' }),
   ),
+  http.post('*/api/auth/login', async ({ request }) => {
+    const data = LoginRequestSchema.parse(await request.json());
+    user.email = data.email.toLowerCase();
+    return reply();
+  }),
+  http.post('*/api/auth/register', async ({ request }) => {
+    const data = RegisterRequestSchema.parse(await request.json());
+    user.email = data.email.toLowerCase();
+    user.name = data.name || null;
+    return reply();
+  }),
   http.post('*/api/auth/google', async ({ request }) => {
     GoogleLoginRequestSchema.parse(await request.json());
     return reply();

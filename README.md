@@ -322,7 +322,7 @@ The deployment target is a static frontend on Vercel and a Docker backend on Ren
 
 The frontend calls the backend directly for streaming chat. The backend image includes ffmpeg and Poppler and runs as a non-root user.
 
-The stack targets free service plans, but storage, model requests, compute, and monthly account quotas still apply. Free-tier availability and limits can change, and an API or database that scales to zero can add startup latency. [docs/DEPLOY.md](docs/DEPLOY.md) contains infrastructure setup steps; use Google-only authentication and the current source schemas where older examples differ.
+The stack targets free service plans, but storage, model requests, compute, and monthly account quotas still apply. Free-tier availability and limits can change, and an API or database that scales to zero can add startup latency. [docs/DEPLOY.md](docs/DEPLOY.md) contains infrastructure setup steps; use Google or email/password authentication and the current source schemas where older examples differ.
 
 ## Project status and further reading
 

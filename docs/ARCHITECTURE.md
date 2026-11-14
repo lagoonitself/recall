@@ -334,7 +334,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE users (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email         text UNIQUE NOT NULL,
-  password_hash text,                 -- unused since D22 (Google only); kept NULL
+  password_hash text,                 -- scrypt hash (D28); NULL for Google-only accounts
   google_sub    text UNIQUE,          -- Google account id ('sub' claim)
   name          text,
   avatar_url    text,
@@ -522,7 +522,7 @@ Main components:
 
 ## 10. Security
 
-- Sign-in is Google only (D22); the server verifies Google's ID token and issues its own JWT, which expires in 7 days. New accounts have no password; a legacy hash from before D22 is cleared when its email is linked to Google.
+- Sign-in is Google or email + password (D28). Google: the server verifies Google's ID token. Email: `POST /api/auth/register` and `/login`, password hashed with scrypt, same "Invalid email or password" message and timing for unknown emails. Both issue the server's own JWT, which expires in 7 days. When Google links an existing email, its password is cleared (pre-account takeover guard); that user signs in with Google from then on.
 - Every query is scoped by `user_id`. Signed R2 URLs are issued only after an ownership check, and expire in 10 minutes.
 - Zod validates every request. Uploads are checked by MIME type and size (50 MB per file). The signed PUT URL includes `Content-Length` and `Content-Type`, and `/complete` checks the stored object with `HEAD` before queuing it.
 - Per-user caps (storage quota, uploads per day, chat messages per minute) protect the shared API keys and the 10 GB R2 bucket.

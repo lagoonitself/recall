@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Quote, Layers, Sparkles } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { GoogleSignIn } from '../components/GoogleSignIn';
+import { EmailSignIn } from '../components/EmailSignIn';
 
 export function AuthPage({ mocking }: { mocking: boolean }) {
   const { user } = useAuth();
+  const [register, setRegister] = useState(false);
 
   if (user) {
     return <Navigate to="/" replace />;
@@ -49,13 +52,30 @@ export function AuthPage({ mocking }: { mocking: boolean }) {
             <div className="auth-card-brand">
               <span className="topbar-brand-mark">r</span>
             </div>
-            <h2 className="auth-card-title">Sign in to Recall</h2>
+            <h2 className="auth-card-title">
+              {register ? 'Create your Recall account' : 'Sign in to Recall'}
+            </h2>
             <p className="auth-card-subtitle">
-              Sign in with your Google account to access your library and chats.
+              {register
+                ? 'Use your email or Google account to get started.'
+                : 'Sign in with your email or Google account to access your library and chats.'}
             </p>
           </div>
 
+          <EmailSignIn key={register ? 'register' : 'login'} register={register} />
+
+          <div className="auth-divider" role="separator">
+            <span>or</span>
+          </div>
+
           <GoogleSignIn mocking={mocking} />
+
+          <p className="auth-switch">
+            {register ? 'Already have an account?' : 'New to Recall?'}{' '}
+            <button type="button" className="auth-switch-link" onClick={() => setRegister(!register)}>
+              {register ? 'Sign in' : 'Create an account'}
+            </button>
+          </p>
 
           <p className="auth-legal">
             By continuing, you agree to Recall's terms of service and privacy policy.

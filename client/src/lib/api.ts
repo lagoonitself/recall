@@ -10,6 +10,8 @@ import {
   UploadUrlResponseSchema,
   ErrorResponseSchema,
   GoogleLoginRequestSchema,
+  LoginRequestSchema,
+  RegisterRequestSchema,
   CreateCollectionRequestSchema,
   UpdateCollectionRequestSchema,
   UploadUrlRequestSchema,
@@ -37,13 +39,15 @@ export class ApiError extends Error {
     super(message);
   }
 }
+const signInPaths = new Set(['/auth/login', '/auth/register', '/auth/google']);
 async function request<T>(path: string, schema: z.ZodType<T>, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
   if (options.body) headers.set('Content-Type', 'application/json');
   if (token) headers.set('Authorization', `Bearer ${token}`);
   const response = await fetch(`${base}/api${path}`, { ...options, headers });
   if (!response.ok) {
-    if (response.status === 401) {
+    // A wrong password is a 401 too; that is a form error, not an expired session.
+    if (response.status === 401 && !signInPaths.has(path)) {
       setToken(null);
       window.dispatchEvent(new Event('recall:unauthorized'));
     }
@@ -62,6 +66,16 @@ export const api = {
     request('/auth/google', AuthResponseSchema, {
       method: 'POST',
       body: body(GoogleLoginRequestSchema.parse({ credential })),
+    }),
+  login: (value: z.input<typeof LoginRequestSchema>) =>
+    request('/auth/login', AuthResponseSchema, {
+      method: 'POST',
+      body: body(LoginRequestSchema.parse(value)),
+    }),
+  register: (value: z.input<typeof RegisterRequestSchema>) =>
+    request('/auth/register', AuthResponseSchema, {
+      method: 'POST',
+      body: body(RegisterRequestSchema.parse(value)),
     }),
   me: () => request('/auth/me', MeResponseSchema),
   collections: () => request('/collections', CollectionsResponseSchema),
