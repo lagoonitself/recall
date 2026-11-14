@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { ZoomIn, X } from 'lucide-react';
 import { api } from '../../lib/api';
 
 export interface ImageViewerProps {
@@ -12,6 +13,7 @@ export function ImageViewer({ chunkId, thumbUrl, fileName }: ImageViewerProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const loadMedia = async () => {
     try {
@@ -35,8 +37,12 @@ export function ImageViewer({ chunkId, thumbUrl, fileName }: ImageViewerProps) {
   }, [chunkId, thumbUrl]);
 
   useEffect(() => {
+    if (!lightboxOpen) return;
+    closeBtnRef.current?.focus();
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && lightboxOpen) {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
         setLightboxOpen(false);
       }
     };
@@ -57,17 +63,22 @@ export function ImageViewer({ chunkId, thumbUrl, fileName }: ImageViewerProps) {
         >
           <img src={displayUrl} alt={fileName} className="image-preview" loading="lazy" />
           <span className="image-expand-hint" aria-hidden="true">
-            🔍 Click to enlarge
+            <ZoomIn size={14} strokeWidth={1.75} />
+            <span>Click to enlarge</span>
           </span>
         </button>
       ) : loading ? (
-        <div className="viewer-loading">Loading image…</div>
+        <div className="viewer-loading skeleton" />
       ) : null}
 
       {error && (
         <div className="viewer-error" role="alert">
-          <p>{error}</p>
-          <button className="button secondary compact-btn" onClick={() => void loadMedia()}>
+          <p className="viewer-error-text">{error}</p>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => void loadMedia()}
+          >
             Retry
           </button>
         </div>
@@ -83,17 +94,21 @@ export function ImageViewer({ chunkId, thumbUrl, fileName }: ImageViewerProps) {
         >
           <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
             <div className="lightbox-bar">
-              <span className="lightbox-title">{fileName}</span>
+              <span className="lightbox-title font-serif">{fileName}</span>
               <button
                 type="button"
-                className="icon-button lightbox-close"
+                ref={closeBtnRef}
+                className="btn btn-ghost btn-icon btn-sm lightbox-close"
                 onClick={() => setLightboxOpen(false)}
-                aria-label="Close image lightbox"
+                aria-label="Close image preview"
+                title="Close"
               >
-                ✕
+                <X strokeWidth={1.75} />
               </button>
             </div>
-            <img src={displayUrl} alt={fileName} className="lightbox-image" />
+            <div className="lightbox-body">
+              <img src={displayUrl} alt={fileName} className="lightbox-image" />
+            </div>
           </div>
         </div>
       )}

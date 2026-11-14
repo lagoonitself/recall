@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Location } from '@app/shared';
+import { Play } from 'lucide-react';
 import { api } from '../../lib/api';
 
 export interface MediaViewerProps {
@@ -61,24 +62,31 @@ export function MediaViewer({ modality, chunkId, location, fileName, thumbUrl }:
 
   return (
     <div className="media-viewer">
-      <div className="viewer-header">
+      <div className="media-viewer-header">
         <button
           type="button"
           onClick={seekToStart}
-          className="badge-button"
+          className="btn btn-secondary btn-sm media-timestamp-btn"
           title={`Seek to ${formatTime(startSec)}`}
         >
-          ▶ Starts at {formatTime(startSec)}
-          {endSec !== undefined ? ` – ${formatTime(endSec)}` : ''}
+          <Play size={14} strokeWidth={1.75} aria-hidden="true" />
+          <span>
+            Starts at {formatTime(startSec)}
+            {endSec !== undefined ? ` – ${formatTime(endSec)}` : ''}
+          </span>
         </button>
       </div>
 
-      {loading && <div className="viewer-loading">Loading media…</div>}
+      {loading && <div className="viewer-loading skeleton" />}
 
       {error && (
         <div className="viewer-error" role="alert">
-          <p>{error}</p>
-          <button className="button secondary compact-btn" onClick={() => void loadMedia()}>
+          <p className="viewer-error-text">{error}</p>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => void loadMedia()}
+          >
             Refresh link
           </button>
         </div>
