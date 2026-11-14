@@ -2,7 +2,7 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by Antigravity (P9 FE chat implementation)
+Last updated: 2026-11-14 by Claude (review of previews & R2 cleanup)
 
 ---
 
@@ -18,14 +18,14 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 |---|---|---|---|---|
 | P0 Foundation + contract | done | Terra / review Claude | part/p0-foundation | Docker build unverified (no daemon) |
 | P1 DB, auth, collections | done | GPT-6.1 Terra | part/p1-db-auth | Includes Google sign-in (D19) |
-| P2 Storage + upload | done | GPT-6.1 Terra / review Claude | part/p2-storage-upload | Signed-PUT replay accepted as risk (D23) |
+| P2 Storage + upload | done | GPT-6.1 Terra / review Claude | part/p2-storage-upload | Signed-PUT replay accepted as risk (D23); collection delete R2 cleanup fixed |
 | P3 Embedding client + spike | done | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D21 |
 | P4 Ingestion worker | done | Terra (splitters) / Claude (worker, pipeline, describe, tests) | part/p4-ingestion | In-process worker (`RUN_WORKER`), retries + stale-lock reclaim, describe fallbacks |
 | P5 LLM provider | done | GPT-6.1 Terra / review Claude | part/p5b-llm-adapters | gemini, openrouter (free models), opencode (needs OpenCode Go) — D24 |
 | P6 Retrieval | done | GPT-6.1 Terra / review Claude | part/p6-retrieval | Hybrid vector + full-text with RRF; HNSW iterative scan |
 | P7 Agent + chat API | not started | — | — | |
-| P8 FE library | done | GPT-6.1 Terra / review Claude | part/p8-fe-library | Google-only sign-in; MSW mocks in dev; real Google popup still to be clicked through by the user |
-| P9 FE chat | in review | Antigravity | part/p9-fe-chat | Full chat screen with SSE parser, live ActivityLog, viewers, composer with voice note, and MSW stream mocks |
+| P8 FE library | done | GPT-6.1 Terra / review Claude | part/p8-fe-library | Google-only sign-in; MSW mocks in dev; file previews & modal complete |
+| P9 FE chat | done | Gemini 3.8 Flash / review Claude | part/p9-fe-chat | Merged (#10); markdown sanitized with DOMPurify by Claude |
 | P10 Deploy + ops | not started | — | — | Needs Neon, R2, Render, Vercel, Cloudflare accounts |
 | P11 Review + QA | not started | — | — | |
 | P12 Docs + demo | not started | — | — | |
@@ -39,13 +39,12 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 ## Next steps
 
 1. Running: P8, P5 real adapters. Claude reviews P6 and the other PRs.
-2. Next: P9 after P8, P4 when P2 is in `main`, P7 when P2 + P6 are in `main`.
-
+2. Next: P9 after P8, P4 when P2 is in `main`, P7 when P2 + P6 are in `main`.\n
 ## Known problems
 
 P6 needs ffmpeg for audio attachments and pgvector 0.8+ for iterative scans. The small test fixture favored the scope index; HNSW use was confirmed with planner overrides, not production-size benchmarks.
 
-P2 signed PUT URLs remain usable until expiry: a client can overwrite the verified original after completion or recreate it after deletion. The existing collection DELETE cascades file rows without deleting R2 objects. Resolve both lifecycle issues before production/merge; P2's file DELETE alone cannot prevent them. Integration tests use the test database and real R2, cleaning their test prefixes.
+P2 signed PUT URLs remain usable until expiry: a client can overwrite the verified original after completion or recreate it after deletion. Signed-PUT replay is documented in D23. Collection DELETE now removes all R2 objects (originals, pieces, thumbs) best-effort after committing the DB transaction. Integration tests use the test database and real R2, cleaning their test prefixes.
 
 Docker Desktop Linux engine was unavailable during P0 verification. The install reports three development dependency vulnerabilities; `npm audit --omit=dev` reports zero.
 
@@ -53,13 +52,18 @@ P5 `npm install` reported 10 vulnerabilities (8 moderate, 2 critical). Gemini li
 
 P3 did not establish actual maximum fully processed duration/pages: over-limit requests returned vectors without proving completeness. Google documents that video audio is not processed; P4 must ingest it separately. Dependency install reports three vulnerabilities (one moderate, two critical); audit before deployment.
 
-P8 file previews are not implemented: the shared file response exposes no chunk IDs, while the media endpoint requires one. Real frontend uploads and a completed Google login still need manual verification; the real Google button renders locally. The HEIC converter is a large lazy-loaded chunk.
+Real frontend uploads and a completed Google login still need manual verification; the real Google button renders locally. The HEIC converter is a large lazy-loaded chunk.
 
 ---
 
 ## Session log
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
+
+### 2026-11-14 · Gemini 3.8 Flash (review Claude) · Fix file previews & R2 collection delete cleanup
+- Task A (R2 collection delete leaks): Implemented batched `deleteObjects` in `r2.ts` ignoring 404s/NoSuchKey. Updated `DELETE /api/collections/:id` and `DELETE /api/files/:id` to collect file originals, pieces, and thumbnail keys in transaction, commit DB deletions, then delete R2 objects and prefix best-effort. Expanded integration test in `p2.integration.test.ts` to verify cascading R2 deletions for files, chunks, pieces, and thumbs.
+- Task B (File previews in library): Updated `@app/shared` contract with `previewChunkId: id.nullable().optional()`. Updated server queries (`GET /api/files` and `GET /api/files/:id`) and `fileResponse` to return the first chunk's ID scoped by `user_id`. Updated MSW handlers and client API client with `chunkMedia`. Updated client `CollectionPage` with file thumbnails, preview action button, and accessible modal preview dialog for image (full), PDF (page image), audio/video (player), and text (snippet) with 10-minute expiry retry on error.
+- All checks pass: `npm run typecheck`, `npm test` (64 passed, 15 skipped integration tests when env missing), `npm run lint`, `npm run build`, and `npm run format:check`.
 
 ### 2026-11-14 · Antigravity · P9 FE chat implementation
 - Implemented Part P9 frontend chat: `client/src/pages/Chat.tsx`, `client/src/components/{Composer,ActivityLog,SourceCard,MessageList}.tsx`, viewers (`PdfViewer`, `MediaViewer`, `ImageViewer`, `TextViewer`), `client/src/lib/sse.ts`, fixture `chat-demo.sse`, conversation MSW handlers, and route/nav wiring in `main.tsx` and `AppShell.tsx`.

@@ -38,6 +38,21 @@ export function createR2(env: NodeJS.ProcessEnv = process.env) {
       (await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }))).Body as Readable,
     put: (key: string, body: Buffer | Readable, contentType: string) =>
       client.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType })),
+    deleteObjects: async (keys: string[]) => {
+      const valid = Array.from(new Set(keys.filter(Boolean)));
+      for (let i = 0; i < valid.length; i += 1000) {
+        const batch = valid.slice(i, i + 1000).map((Key) => ({ Key }));
+        if (batch.length) {
+          const deleted = await client.send(
+            new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: batch, Quiet: true } }),
+          );
+          const errors = (deleted.Errors ?? []).filter((e) => e.Code !== 'NoSuchKey');
+          if (errors.length) {
+            throw new Error(`R2 object deletion failed: ${errors.map((e) => e.Key).join(', ')}`);
+          }
+        }
+      }
+    },
     deletePrefix: async (prefix: string) => {
       let token: string | undefined;
       do {
@@ -47,9 +62,10 @@ export function createR2(env: NodeJS.ProcessEnv = process.env) {
         const objects = (result.Contents ?? []).flatMap(({ Key }) => (Key ? [{ Key }] : []));
         if (objects.length) {
           const deleted = await client.send(
-            new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: objects } }),
+            new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: objects, Quiet: true } }),
           );
-          if (deleted.Errors?.length) throw new Error('R2 object deletion failed');
+          const errors = (deleted.Errors ?? []).filter((e) => e.Code !== 'NoSuchKey');
+          if (errors.length) throw new Error('R2 object deletion failed');
         }
         token = result.NextContinuationToken;
       } while (token);

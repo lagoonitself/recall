@@ -210,8 +210,28 @@ export const handlers = [
     setTimeout(() => {
       file.status = 'ready';
       file.piecesDone = 1;
+      file.previewChunkId = crypto.randomUUID();
     }, 3000);
     return HttpResponse.json({ file });
+  }),
+  http.get('*/api/chunks/:id/media', ({ request, params }) => {
+    const isThumb = new URL(request.url).searchParams.get('thumbnail') === 'true';
+    const chunkId = params.id as string;
+    const file = files.find((item) => item.previewChunkId === chunkId);
+    if (file && isThumb && (file.modality === 'audio' || file.modality === 'text')) {
+      return fail();
+    }
+    if (isThumb) {
+      const svgThumb = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="300" height="200" fill="#e8eee3"/><text x="150" y="105" font-family="sans-serif" font-size="14" fill="#385c3d" text-anchor="middle">Preview Thumbnail</text></svg>`;
+      return HttpResponse.json({ url: `data:image/svg+xml;utf8,${encodeURIComponent(svgThumb)}` });
+    }
+    if (file?.modality === 'text') {
+      const text = `Document Preview: ${file.name}\n\nThis is sample text content indexed by Recall.\nModality: TEXT\nSize: ${file.sizeBytes} bytes.`;
+      return HttpResponse.json({ url: `data:text/plain;charset=utf-8,${encodeURIComponent(text)}` });
+    }
+    const title = file ? file.name : 'Preview Document';
+    const svgFull = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"><rect width="800" height="600" fill="#f8f8f3"/><text x="400" y="280" font-family="Georgia, serif" font-size="24" fill="#252e28" text-anchor="middle">${title}</text><text x="400" y="320" font-family="sans-serif" font-size="14" fill="#667169" text-anchor="middle">Full Preview Page</text></svg>`;
+    return HttpResponse.json({ url: `data:image/svg+xml;utf8,${encodeURIComponent(svgFull)}` });
   }),
   http.delete('*/api/files/:id', ({ params }) => {
     files = files.filter((item) => item.id !== params.id);
