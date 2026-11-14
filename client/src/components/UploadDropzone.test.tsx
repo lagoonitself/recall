@@ -14,7 +14,10 @@ describe('upload validation', () => {
     fireEvent.drop(screen.getByLabelText('Upload files'), { dataTransfer: { files: [file] } });
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('50 MB'));
   });
-  it('rejects a 90 second video', async () => {
+  it.each([
+    ['long.mp4', 'video/mp4'],
+    ['long.mov', ''],
+  ])('rejects a 90 second video (%s)', async (name, mime) => {
     vi.stubGlobal('URL', { createObjectURL: () => 'blob:test', revokeObjectURL: () => {} });
     const original = document.createElement.bind(document);
     vi.spyOn(document, 'createElement').mockImplementation(((name: string) => {
@@ -27,9 +30,7 @@ describe('upload validation', () => {
       }
       return element;
     }) as typeof document.createElement);
-    await expect(prepareFile(new File(['video'], 'long.mp4', { type: 'video/mp4' }))).rejects.toThrow(
-      '80 seconds',
-    );
+    await expect(prepareFile(new File(['video'], name, { type: mime }))).rejects.toThrow('80 seconds');
     vi.unstubAllGlobals();
   });
   it('converts HEIC to JPEG before upload', async () => {
@@ -38,5 +39,17 @@ describe('upload validation', () => {
     expect(convert).toHaveBeenCalled();
     expect(result.name).toBe('photo.jpg');
     expect(result.type).toBe('image/jpeg');
+  });
+  it.each([
+    ['notes.md', 'text/markdown'],
+    ['report.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+    ['recording.ogg', 'audio/ogg'],
+    ['recording.m4a', 'audio/mp4'],
+    ['recording.wav', 'audio/wav'],
+  ])('infers the MIME type for %s when the browser omits it', async (name, mime) => {
+    const result = await prepareFile(new File(['content'], name, { lastModified: 123 }));
+    expect(result.type).toBe(mime);
+    expect(result.name).toBe(name);
+    expect(result.lastModified).toBe(123);
   });
 });

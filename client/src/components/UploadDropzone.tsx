@@ -1,10 +1,27 @@
 import { useRef, useState, type DragEvent } from 'react';
 import { api, upload } from '../lib/api';
 const limit = 50 * 1024 * 1024;
+const wordMime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const extensionMimes: Record<string, string> = {
+  md: 'text/markdown',
+  docx: wordMime,
+  mov: 'video/quicktime',
+  ogg: 'audio/ogg',
+  m4a: 'audio/mp4',
+  wav: 'audio/wav',
+};
 export async function prepareFile(file: File): Promise<File> {
   if (!file.size || file.size > limit) throw new Error(`${file.name}: choose a file up to 50 MB.`);
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+  if (!file.type && extensionMimes[extension]) {
+    file = new File([file], file.name, { type: extensionMimes[extension], lastModified: file.lastModified });
+  }
   const heic = /\.(heic|heif)$/i.test(file.name) || /image\/hei[cf]/i.test(file.type);
-  if (!heic && !/^(image\/|audio\/|video\/|text\/|application\/pdf$)/.test(file.type))
+  if (
+    !heic &&
+    file.type !== wordMime &&
+    !/^(image\/|audio\/|video\/|text\/|application\/pdf$)/.test(file.type)
+  )
     throw new Error(`${file.name}: this file type is not supported.`);
   if (file.type.startsWith('video/')) {
     const url = URL.createObjectURL(file);
@@ -95,13 +112,13 @@ export function UploadDropzone({
         className="visually-hidden"
         type="file"
         multiple
-        accept="image/*,audio/*,video/*,text/*,application/pdf,.heic,.heif"
+        accept="image/*,audio/*,video/*,text/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,video/quicktime,audio/ogg,audio/mp4,audio/wav,.heic,.heif,.md,.docx,.mov,.ogg,.m4a,.wav"
         onChange={(event) => {
           if (event.target.files) void handle(event.target.files);
           event.target.value = '';
         }}
       />
-      <small>PDF, images, audio, video or text · Up to 50 MB each · Video up to 80 sec</small>
+      <small>PDF, images, audio, video, text or Word · Up to 50 MB each · Video up to 80 sec</small>
       <p aria-live="polite">{progress}</p>
       {message && (
         <p role="alert" className="error">

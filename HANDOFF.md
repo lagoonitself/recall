@@ -2,7 +2,7 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by Claude (P2 review)
+Last updated: 2026-11-14 by GPT-6.1 Terra (P8)
 
 ---
 
@@ -24,7 +24,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 | P5 LLM provider | in progress | GPT-6.1 Terra | part/p5-llm-provider | Interface + fake merged; real adapters gemini/openrouter/opencode next (D20) |
 | P6 Retrieval | in progress | GPT-6.1 Terra | part/p6-retrieval | |
 | P7 Agent + chat API | not started | — | — | |
-| P8 FE library | in progress | GPT-6.1 Terra | part/p8-fe-library | Includes Google sign-in button (D19) |
+| P8 FE library | in review | GPT-6.1 Terra | part/p8-fe-library | Google-only (D22), P2 file types; previews and real upload UI still need verification |
 | P9 FE chat | not started | — | — | |
 | P10 Deploy + ops | not started | — | — | Needs Neon, R2, Render, Vercel, Cloudflare accounts |
 | P11 Review + QA | not started | — | — | |
@@ -51,11 +51,18 @@ P5 `npm install` reported 10 vulnerabilities (8 moderate, 2 critical); the real 
 
 P3 did not establish actual maximum fully processed duration/pages: over-limit requests returned vectors without proving completeness. Google documents that video audio is not processed; P4 must ingest it separately. Dependency install reports three vulnerabilities (one moderate, two critical); audit before deployment.
 
+P8 file previews are not implemented: the shared file response exposes no chunk IDs, while the media endpoint requires one. Real frontend uploads and a completed Google login still need manual verification; the real Google button renders locally. The HEIC converter is a large lazy-loaded chunk.
+
 ---
 
 ## Session log
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
+
+### 2026-11-14 · GPT-6.1 Terra · P8 Google-only review and P2 types
+- Changed sign-in to Google only, added config retry/disabled states and development-only mock login, moved MSW to dev dependencies, and added Word/MOV/OGG/M4A/WAV support plus MIME inference for files without a browser type. Merged `main` after P1/P2 and D22 landed.
+- `npm run typecheck`, `npm test` (54 tests, including P1/P2 integration), `npm run lint`, `npm run build`, and `npm run format:check` pass. Checked the mock login and the real Google button at desktop and 375px; the popup was not opened. File previews and real UI uploads remain open.
+- Outside the P8 source scope: `.prettierignore` excludes the generated MSW worker to preserve its integrity; `client/package.json`, `client/public/`, `client/src/main.tsx`, `client/src/style.css`, `package-lock.json`, and this handoff support dependencies, bootstrapping, styling and session tracking.
 
 ### 2026-11-14 · GPT-6.1 Terra · P2 implementation
 - Implemented R2 helpers, upload/complete/list/get/delete and chunk media, quota accounting, migration 003, and live test-bucket round trip. No shared contract changes.
