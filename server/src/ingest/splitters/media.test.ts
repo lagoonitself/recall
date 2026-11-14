@@ -48,22 +48,42 @@ describe('media splitters', () => {
     expect(pieces.map((piece) => piece.startSec)).toEqual([0, 1, 2]);
     expect(pieces[2].endSec).toBeCloseTo(2.2, 1);
   });
-  it('normalizes video and writes a poster', async () => {
-    const dir = await directory();
-    const input = join(dir, 'input.mp4');
-    execFileSync('ffmpeg', [
-      '-v',
-      'error',
-      '-f',
-      'lavfi',
-      '-i',
-      'color=c=red:s=128x96:d=1',
-      '-c:v',
-      'libx264',
-      input,
-    ]);
-    const [piece] = await splitVideo(input, dir);
-    expect(piece.endSec).toBeCloseTo(1, 1);
-    expect((await sharp(piece.thumbnail!).metadata()).format).toBe('jpeg');
-  });
+  it.each(['128x96', '640x360', '1280x720', '360x640'])(
+    'normalizes %s video to even dimensions and writes a poster',
+    async (size) => {
+      const dir = await directory();
+      const input = join(dir, 'input.mp4');
+      execFileSync('ffmpeg', [
+        '-v',
+        'error',
+        '-f',
+        'lavfi',
+        '-i',
+        `color=c=red:s=${size}:d=1`,
+        '-c:v',
+        'libx264',
+        input,
+      ]);
+      const [piece] = await splitVideo(input, dir);
+      expect(piece.endSec).toBeCloseTo(1, 1);
+      const { streams } = JSON.parse(
+        execFileSync('ffprobe', [
+          '-v',
+          'error',
+          '-select_streams',
+          'v:0',
+          '-show_entries',
+          'stream=codec_name,width,height',
+          '-of',
+          'json',
+          piece.path,
+        ]).toString(),
+      );
+      expect(streams[0].codec_name).toBe('h264');
+      expect(streams[0].width % 2).toBe(0);
+      expect(streams[0].height % 2).toBe(0);
+      expect(streams[0].height).toBeLessThanOrEqual(480);
+      expect((await sharp(piece.thumbnail!).metadata()).format).toBe('jpeg');
+    },
+  );
 });

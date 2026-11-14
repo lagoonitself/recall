@@ -2,7 +2,7 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by Codex (P12 README)
+Last updated: 2026-11-14 by Codex (P4 video upload fix)
 
 ---
 
@@ -63,6 +63,12 @@ P7: the provider is not interruptible mid-await, so a disconnect is noticed at t
 ## Session log
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
+
+### 2026-11-14 - Codex - P4 video upload failure
+- Reproduced the production failure with the user's valid 640x360 H.264/AAC clip: aspect-ratio adjustment produced width 853, which libx264 rejects. Added `force_divisible_by=2` to the existing scale filter; the actual 18.576-second clip now converts successfully with audio retained.
+- Expanded real-FFmpeg regression coverage to 128x96, 640x360, 1280x720 and portrait 360x640, asserting H.264, even dimensions, height <= 480, duration and poster output. Before fix: both landscape regressions failed; after fix: all four passed. Independent agent review approved, including Debian bookworm / FFmpeg 5.1 compatibility.
+- Typecheck, lint and formatting passed. Full test run: 128 tests passed, 15 skipped, but the unrelated P7 integration suite throws during collection when both database environment variables are unset (`TEST_DATABASE_URL must differ from DATABASE_URL`). No production database credentials used for tests.
+- Outside P4 scope: required HANDOFF and DECISIONS updates only. Deployment and signed-in production retry are the remaining verification steps.
 
 ### 2026-11-14 ? Codex ? P12 GitHub README
 - Added a detailed README covering product behavior, architecture diagram, ingestion, hybrid retrieval, LLM tools, citations, mock/full local setup, configuration, deployment, limits, security and credits. Gemini Embedding 2 is the only named model; LLM identity is omitted per user request (D26).

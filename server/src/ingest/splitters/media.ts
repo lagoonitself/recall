@@ -133,7 +133,8 @@ export async function splitVideo(path: string, directory: string): Promise<Media
     '-i',
     path,
     '-vf',
-    'scale=-2:480:force_original_aspect_ratio=decrease',
+    // Aspect-ratio adjustment can undo -2's even rounding (e.g. 640x360 -> 853x480).
+    'scale=-2:480:force_original_aspect_ratio=decrease:force_divisible_by=2',
     '-c:v',
     'libx264',
     '-c:a',
