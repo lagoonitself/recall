@@ -46,6 +46,11 @@ export const ConfigSchema = z
 
     AUDIO_PIECE_SEC: positiveInt.default(150),
     WORKER_CONCURRENCY: positiveInt.default(1),
+    /** Run the ingestion worker inside the API process (Render free has one service). */
+    RUN_WORKER: z
+      .enum(['true', 'false', ''])
+      .default('true')
+      .transform((v) => v !== 'false'),
     MAX_FILE_MB: positiveInt.default(50),
     USER_QUOTA_MB: positiveInt.default(500),
     UPLOADS_PER_DAY: positiveInt.default(100),

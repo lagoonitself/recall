@@ -20,7 +20,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 | P1 DB, auth, collections | done | GPT-6.1 Terra | part/p1-db-auth | Includes Google sign-in (D19) |
 | P2 Storage + upload | done | GPT-6.1 Terra / review Claude | part/p2-storage-upload | Signed-PUT replay accepted as risk (D23) |
 | P3 Embedding client + spike | done | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D21 |
-| P4 Ingestion worker | not started | — | — | |
+| P4 Ingestion worker | done | Terra (splitters) / Claude (worker, pipeline, describe, tests) | part/p4-ingestion | In-process worker (`RUN_WORKER`), retries + stale-lock reclaim, describe fallbacks |
 | P5 LLM provider | done | GPT-6.1 Terra / review Claude | part/p5b-llm-adapters | gemini, openrouter (free models), opencode (needs OpenCode Go) — D24 |
 | P6 Retrieval | done | GPT-6.1 Terra / review Claude | part/p6-retrieval | Hybrid vector + full-text with RRF; HNSW iterative scan |
 | P7 Agent + chat API | not started | — | — | |
@@ -60,6 +60,15 @@ P8 file previews are not implemented: the shared file response exposes no chunk 
 ## Session log
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
+
+### 2026-11-14 · Claude · P4 completion
+- Terra's agent stopped after the splitters. Added the worker (claim with SKIP LOCKED, 15-min stale-lock reclaim, 3 attempts with 30 s/2 min/8 min backoff, PermanentError for unreadable files, SIGTERM requeue), the pipeline (stream original to /tmp, split, store pieces + thumbs in R2, embed, describe with §4.3 fallbacks, idempotent chunk insert, progress), and tests (all five modalities on the test DB + R2, reclaim without duplicates, retry/permanent failure).
+- Server test files now run one at a time (shared test DB and job queue).
+
+### 2026-11-14 · GPT-6.1 Terra · P4 draft
+- Added text/DOCX, PDF, image, audio and video splitting primitives with generated-fixture tests; not wired to a worker. Changes outside P4 scope: dependency manifests/lockfile and this handoff.
+- Remaining: job claims, stale-lock ownership/heartbeat, retries and shutdown; R2 pipeline, embedding, safe batched describe including video speech, idempotent chunk writes, progress and startup; job-state and per-modality live integration/reclaim tests. Review text sizing and media edge cases before use.
+- `npm run typecheck`, `npm test`, `npm run lint`, `npm run build`, and `npm run format:check` passed. Existing P1/P2 integration tests used the test database and R2. P4 integration was not run. ffmpeg, ffprobe and pdftoppm were already on PATH. npm reported three vulnerabilities (one moderate, two critical).
 
 ### 2026-11-14 · GPT-6.1 Terra · P8 Google-only review and P2 types
 - Changed sign-in to Google only, added config retry/disabled states and development-only mock login, moved MSW to dev dependencies, and added Word/MOV/OGG/M4A/WAV support plus MIME inference for files without a browser type. Merged `main` after P1/P2 and D22 landed.
