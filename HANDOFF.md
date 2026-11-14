@@ -2,7 +2,7 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by GPT-6.1 Terra (P3)
+Last updated: 2026-11-14 by Claude (P1 review)
 
 ---
 
@@ -17,7 +17,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 | Part | Status | Taken by | Branch | Notes |
 |---|---|---|---|---|
 | P0 Foundation + contract | done | Terra / review Claude | part/p0-foundation | Docker build unverified (no daemon) |
-| P1 DB, auth, collections | in progress | GPT-6.1 Terra | part/p1-db-auth | Includes Google sign-in (D19) |
+| P1 DB, auth, collections | in review | GPT-6.1 Terra | part/p1-db-auth | Includes Google sign-in (D19) |
 | P2 Storage + upload | not started | — | — | |
 | P3 Embedding client + spike | done | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D21 |
 | P4 Ingestion worker | not started | — | — | |
@@ -38,7 +38,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 ## Next steps
 
-1. Lanes running: P1, P5, P8. Claude reviews P3 and each other PR.
+1. Lanes running: P8; P5 in review. P2 and P6 start after P1 merges.
 2. Then P2 after P1, P6 after P3, P9 after P8, P4 when P2+P3+P5 are in `main`.
 
 ## Known problems
@@ -52,6 +52,12 @@ P3 did not establish actual maximum fully processed duration/pages: over-limit r
 ## Session log
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
+
+### 2026-11-14 · GPT-6.1 Terra · P1 implementation
+- Implemented database, auth (including Google), collections, and integration tests; main Neon migration applied after tests passed on the test branch.
+- Typecheck, tests, lint, and build pass. Claude review is next. Integration tests require TEST_DATABASE_URL and otherwise skip.
+- Outside P1's listed scope: app router wiring, workspace package scripts/dependencies, integration tests, and this handoff. The shared contract is unchanged; collection list includes the brief's fileCount as an extra field.
+- Migration SQL is not copied into the existing production Docker runtime image; run migrations from the source checkout until deployment addresses this. npm install reported three dependency vulnerabilities; Docker remains unverified.
 
 ### 2026-11-14 · GPT-6.1 Terra · P3 embedding
 - Implemented SDK client, request throttling, retries, synthetic live spike and mocked tests; all four requested checks passed. See D21 for measurements and unresolved truncation limits.
