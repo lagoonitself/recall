@@ -69,7 +69,7 @@ export function GoogleSignIn({ mocking }: { mocking: boolean }) {
         theme: 'outline',
         size: 'large',
         text: 'continue_with',
-        width: 320,
+        width: Math.min(320, target.current.clientWidth || 320),
       });
     };
     const failed = () => {
@@ -111,15 +111,16 @@ export function GoogleSignIn({ mocking }: { mocking: boolean }) {
   return (
     <div className="sign-in-options">
       {configState === 'loading' && (
-        <p className="muted" role="status">
+        <p className="auth-card-subtitle" role="status">
           Loading sign-in…
         </p>
       )}
       {configState === 'error' && (
-        <div role="alert">
-          <p className="error">Could not load sign-in settings.</p>
+        <div role="alert" className="sign-in-options">
+          <p className="badge badge-danger">Could not load sign-in settings.</p>
           <button
-            className="button secondary"
+            type="button"
+            className="btn btn-secondary"
             onClick={() => {
               setConfigState('loading');
               setAttempt((value) => value + 1);
@@ -130,7 +131,7 @@ export function GoogleSignIn({ mocking }: { mocking: boolean }) {
         </div>
       )}
       {configState === 'ready' && !clientId && (
-        <p className="muted" role="status">
+        <p className="auth-card-subtitle" role="status">
           Google sign-in is not configured.
         </p>
       )}
@@ -139,7 +140,8 @@ export function GoogleSignIn({ mocking }: { mocking: boolean }) {
           <div ref={target} className="google-button" />
           {import.meta.env.DEV && mocking && (
             <button
-              className="button secondary mock-sign-in"
+              type="button"
+              className="btn btn-secondary mock-sign-in"
               disabled={busy}
               onClick={() => void mockSignIn()}
             >
@@ -149,7 +151,7 @@ export function GoogleSignIn({ mocking }: { mocking: boolean }) {
         </>
       )}
       {error && (
-        <p className="error" role="alert">
+        <p className="badge badge-danger" role="alert">
           {error}
         </p>
       )}

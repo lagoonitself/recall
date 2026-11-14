@@ -154,6 +154,16 @@ export function filesRouter(pool: () => pg.Pool, secret: string, storage: () => 
     if (!result.rowCount) throw missing();
     res.json({ file: fileResponse(result.rows[0]) });
   });
+  /** Signed URL for the original uploaded file (full document), for the library preview. */
+  router.get('/:id/media', validate({ params }), async (req, res) => {
+    const result = await pool().query(
+      "SELECT r2_key FROM files WHERE id = $1 AND user_id = $2 AND status = 'ready'",
+      [req.params.id, req.user!.id],
+    );
+    const key = result.rows[0]?.r2_key;
+    if (!key) throw missing();
+    res.json({ url: await storage().signGet(key) });
+  });
   router.delete('/:id', validate({ params }), async (req, res) => {
     const client = await pool().connect();
     let prefixToDelete = '';

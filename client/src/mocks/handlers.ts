@@ -166,6 +166,10 @@ export const handlers = [
     files = files.filter((item) => item.collectionId !== params.id);
     return new HttpResponse(null, { status: 204 });
   }),
+  http.get('*/api/files/:id', ({ params }) => {
+    const file = files.find((item) => item.id === params.id);
+    return file ? HttpResponse.json({ file }) : fail();
+  }),
   http.get('*/api/files', ({ request }) => {
     const id = new URL(request.url).searchParams.get('collectionId');
     return HttpResponse.json({ files: files.filter((file) => !id || file.collectionId === id) });
@@ -417,6 +421,29 @@ export const handlers = [
         'Cache-Control': 'no-cache',
         Connection: 'keep-alive',
       },
+    });
+  }),
+
+  // Full original file (library preview). Multi-page sample PDF for pdf files.
+  http.get('*/api/files/:id/media', ({ params }) => {
+    const file = files.find((item) => item.id === params.id);
+    if (!file) return fail();
+    if (file.modality === 'pdf') {
+      return HttpResponse.json({
+        url: 'https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf',
+      });
+    }
+    return HttpResponse.json({
+      url: 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?w=1600',
+    });
+  }),
+  // Whole document a cited chunk belongs to.
+  http.get('*/api/chunks/:id/document', ({ params }) => {
+    const file =
+      files.find((item) => item.previewChunkId === params.id) ?? files.find((f) => f.modality === 'pdf');
+    return HttpResponse.json({
+      url: 'https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf',
+      fileId: file?.id ?? '22222222-2222-4222-8222-222222222222',
     });
   }),
 

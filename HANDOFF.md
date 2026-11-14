@@ -70,6 +70,12 @@ P7: the provider is not interruptible mid-await, so a disconnect is noticed at t
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
 
+### 2026-11-14 · Claude (lead) + 4× Gemini 3.8 Flash High · Frontend redesign (merged on branch, not yet in main)
+- Branch `part/fe-redesign` (foundation, commit 12c55b9): `style.css` split into per-area files under `client/src/styles/`; new `tokens.css` (light + dark) and `base.css` primitives (`.btn`, `.input`, `.badge`, `.skeleton`…); Geist / Geist Mono / Newsreader fonts; `lucide-react`; `FilePreview` extracted from the Collection page; spec + file-ownership table in `client/src/styles/README.md`.
+- Server (outside FE scope, noted here per rules): `GET /api/files/:id/media` and `GET /api/chunks/:id/document` return a signed URL of the original upload so previews can show the whole PDF, not only the 1-page chunk piece. Client: `api.fileMedia`, `api.chunkDocument`; MSW mocks added.
+- Four agents run in parallel worktrees: A shell+library (`part/fe-redesign-a-shell`), B full-document preview (`-b-preview`), C chat layout + composer, voice recorder removed, one attach button (`-c-chat`), D messages/activity/citations/sources (`-d-messages`). All four merged into `part/fe-redesign` (921d88f); `legacy-base.css` deleted; 51 client tests, typecheck and `vite build` pass; checked in the browser against MSW mocks at 1440px / 375px, light + dark.
+- Not yet done: PR + review by another agent; check against the real backend (a real multi-page PDF through `/files/:id/media`, R2 CORS for pdf.js range requests); the Google button on the sign-in card is wider than the card content.
+
 ### 2026-11-14 · Gemini 3.8 Flash (review Claude) · P10 deploy-prep completion
 - Prepared all P10 deployment and operations deliverables on branch `part/p10-deploy-prep` without touching live cloud accounts or secrets.
 - Dockerfile: Re-engineered into a 3-stage multi-stage build (`build`, `prod-deps`, `runtime`). Installed `ffmpeg` and `poppler-utils` (`pdftoppm`), set non-root user `node` (uid 1000), verified image build and container startup via Docker Desktop Linux engine. Startup command applies pending migrations then executes server (`node server/dist/db/migrate.js && exec node server/dist/index.js`).

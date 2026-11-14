@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
+import { Maximize2 } from 'lucide-react';
 import { api } from '../../lib/api';
+import { setupPdfWorker } from '../preview/pdfWorker';
 
 export interface PdfViewerProps {
   chunkId: string;
   page?: number;
   thumbUrl?: string | null;
   fileName: string;
+  onOpenDocument?: () => void;
 }
 
-export function PdfViewer({ chunkId, page = 1, thumbUrl, fileName }: PdfViewerProps) {
+export function PdfViewer({ chunkId, page = 1, thumbUrl, fileName, onOpenDocument }: PdfViewerProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -42,12 +46,8 @@ export function PdfViewer({ chunkId, page = 1, thumbUrl, fileName }: PdfViewerPr
 
     async function renderPage() {
       try {
-        const pdfjsLib = await import('pdfjs-dist');
-        if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-          pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-        }
-
-        const loadingTask = pdfjsLib.getDocument({ url: currentUrl });
+        const pdfjsLib = setupPdfWorker();
+        const loadingTask = pdfjsLib.getDocument({ url: currentUrl, withCredentials: false });
         const pdf = await loadingTask.promise;
         if (cancelled) return;
 
@@ -55,18 +55,28 @@ export function PdfViewer({ chunkId, page = 1, thumbUrl, fileName }: PdfViewerPr
         const pdfPage = await pdf.getPage(targetPage);
         if (cancelled || !canvasRef.current) return;
 
-        const viewport = pdfPage.getViewport({ scale: 1.2 });
+        const containerWidth = containerRef.current?.clientWidth || 540;
+        const baseViewport = pdfPage.getViewport({ scale: 1 });
+        const scale = Math.min(1.5, Math.max(0.6, containerWidth / baseViewport.width));
+        const viewport = pdfPage.getViewport({ scale });
+
         const canvas = canvasRef.current;
+        const dpr = Math.max(window.devicePixelRatio || 1, 1);
+        canvas.width = Math.floor(viewport.width * dpr);
+        canvas.height = Math.floor(viewport.height * dpr);
+        canvas.style.width = '100%';
+        canvas.style.height = 'auto';
+
         const context = canvas.getContext('2d');
         if (!context) return;
 
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.scale(dpr, dpr);
 
         const renderContext = {
+          canvas,
           canvasContext: context,
           viewport,
-          canvas,
         };
 
         await pdfPage.render(renderContext).promise;
@@ -74,7 +84,6 @@ export function PdfViewer({ chunkId, page = 1, thumbUrl, fileName }: PdfViewerPr
           setRendered(true);
         }
       } catch {
-        // Fallback to thumbnail or embed if canvas rendering is not supported in environment
         if (!cancelled) {
           setRendered(false);
         }
@@ -89,32 +98,23 @@ export function PdfViewer({ chunkId, page = 1, thumbUrl, fileName }: PdfViewerPr
   }, [mediaUrl, page]);
 
   return (
-    <div className="pdf-viewer">
-      <div className="viewer-header">
-        <span className="badge">Page {page}</span>
-        {mediaUrl && (
-          <a
-            href={mediaUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="external-link"
-            aria-label={`Open ${fileName} in new tab`}
-          >
-            Open PDF ↗
-          </a>
-        )}
-      </div>
-
-      {loading && !thumbUrl && <div className="viewer-loading">Loading page {page}…</div>}
+    <div className="pdf-viewer" ref={containerRef}>
+      {loading && !thumbUrl && !rendered && (
+        <div className="viewer-loading skeleton" aria-label={`Loading page ${page}`}>
+          <span className="visually-hidden">Loading page {page}…</span>
+        </div>
+      )}
 
       {error && (
         <div className="viewer-error" role="alert">
-          <p>{error}</p>
-          <button className="button secondary compact-btn" onClick={() => void loadMediaUrl()}>
+          <p className="viewer-error-text">{error}</p>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => void loadMediaUrl()}>
             Retry
           </button>
         </div>
       )}
+
+      <span className="visually-hidden">Page {page}</span>
 
       {/* Show page thumbnail first while rendering or as fallback */}
       {thumbUrl && !rendered && (
@@ -126,6 +126,20 @@ export function PdfViewer({ chunkId, page = 1, thumbUrl, fileName }: PdfViewerPr
       <div className={`canvas-wrapper ${rendered ? 'visible' : 'hidden'}`}>
         <canvas ref={canvasRef} />
       </div>
+
+      {onOpenDocument && (
+        <div className="pdf-viewer-footer">
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={onOpenDocument}
+            aria-label={`Open full document for ${fileName}`}
+          >
+            <Maximize2 strokeWidth={1.75} />
+            <span>Open full document</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
