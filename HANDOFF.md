@@ -2,7 +2,7 @@
 
 **Read this first. Update it last.** This file is the shared memory between Claude, Codex and any other agent working here. It says where things stand right now. History of decisions lives in [docs/DECISIONS.md](docs/DECISIONS.md); the design lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the work split lives in [docs/PLAN.md](docs/PLAN.md).
 
-Last updated: 2026-11-14 by Claude (orchestrator)
+Last updated: 2026-11-14 by GPT-6.1 Terra (P5)
 
 ---
 
@@ -21,7 +21,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 | P2 Storage + upload | not started | — | — | |
 | P3 Embedding client + spike | in progress | GPT-6.1 Terra | part/p3-embedding | |
 | P4 Ingestion worker | not started | — | — | |
-| P5 LLM provider | in progress | GPT-6.1 Terra | part/p5-llm-provider | Fake only; real adapter blocked on LLM choice |
+| P5 LLM provider | in review | GPT-6.1 Terra | part/p5-llm-provider | Fake and contract suite ready; real adapter blocked on LLM choice |
 | P6 Retrieval | not started | — | — | |
 | P7 Agent + chat API | not started | — | — | |
 | P8 FE library | in progress | GPT-6.1 Terra | part/p8-fe-library | Includes Google sign-in button (D19) |
@@ -39,18 +39,24 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 
 ## Next steps
 
-1. Lanes running: P1, P3, P5, P8. Claude reviews each PR.
+1. Claude reviews the P5 PR; P1, P3 and P8 remain in progress.
 2. Then P2 after P1, P6 after P3, P9 after P8, P4 when P2+P3+P5 are in `main`.
 
 ## Known problems
 
 Docker Desktop Linux engine was unavailable during P0 verification. The install reports three development dependency vulnerabilities; `npm audit --omit=dev` reports zero.
 
+P5 `npm install` reported 10 vulnerabilities (8 moderate, 2 critical); the real LLM adapter, live contract run, chunked tool-argument parsing, and model-specific capabilities remain blocked on the LLM choice.
+
 ---
 
 ## Session log
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
+
+### 2026-11-14 · GPT-6.1 Terra · P5 provider layer
+- Added provider types, conservative capability fallback, scriptable fake, environment factory, reusable contract suite and SSE fixture. No changes to shared contracts; this handoff is outside the P5 code scope.
+- `npm run typecheck`, `npm test` (27 tests), `npm run lint`, and `npm run build` passed. `npm install` succeeded with audit warnings. The real adapter and live tests await the user's LLM choice.
 
 ### 2026-11-14 · Claude · P0 review + lane start
 - Finished the P0 review: config fix for real `.env`, malformed JSON → 400, query/param validation, no R2 keys in the contract, min password 8. Prettier added.
