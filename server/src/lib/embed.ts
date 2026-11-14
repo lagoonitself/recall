@@ -5,11 +5,17 @@ import { throttle } from './throttle.js';
 
 const MAX_INLINE_BYTES = 15 * 1024 * 1024;
 type Task = 'document' | 'query';
-type Media = { mimeType: string } & ({ data: Uint8Array; stream?: never } | { stream: Readable; data?: never });
+type Media = { mimeType: string } & (
+  { data: Uint8Array; stream?: never } | { stream: Readable; data?: never }
+);
 type Options = { apiKey: string; model: string; rpm: number; concurrency: number };
 
 export class EmbedError extends Error {
-  constructor(message: string, public readonly status?: number, options?: ErrorOptions) {
+  constructor(
+    message: string,
+    public readonly status?: number,
+    options?: ErrorOptions,
+  ) {
     super(message, options);
     this.name = 'EmbedError';
   }
@@ -39,11 +45,13 @@ export function createEmbedClient(options: Options) {
   async function embed(contents: string | { inlineData: { mimeType: string; data: string } }) {
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
-        const response = await schedule(() => ai.models.embedContent({
-          model: options.model,
-          contents,
-          config: { outputDimensionality: 1536 },
-        }));
+        const response = await schedule(() =>
+          ai.models.embedContent({
+            model: options.model,
+            contents,
+            config: { outputDimensionality: 1536 },
+          }),
+        );
         const values = response.embeddings?.[0]?.values;
         if (!values || values.length !== 1536 || values.some((value) => !Number.isFinite(value))) {
           throw new EmbedError('Embedding response must contain 1536 finite values');
@@ -51,7 +59,10 @@ export function createEmbedClient(options: Options) {
         return values;
       } catch (error) {
         if (error instanceof EmbedError) throw error;
-        const status = typeof error === 'object' && error !== null && 'status' in error && typeof error.status === 'number' ? error.status : undefined;
+        const status =
+          typeof error === 'object' && error !== null && 'status' in error && typeof error.status === 'number'
+            ? error.status
+            : undefined;
         if ((status !== 429 && !(status && status >= 500 && status < 600)) || attempt === 4) {
           throw new EmbedError('Embedding request failed', status, { cause: error });
         }
@@ -62,7 +73,8 @@ export function createEmbedClient(options: Options) {
   }
 
   return {
-    embedText: (text: string, task: Task = 'document') => embed(task === 'query' ? `task: search result | query: ${text}` : `title: none | text: ${text}`),
+    embedText: (text: string, task: Task = 'document') =>
+      embed(task === 'query' ? `task: search result | query: ${text}` : `title: none | text: ${text}`),
     embedMedia: async (media: Media) => {
       try {
         const bytes = await mediaBytes(media);
@@ -79,7 +91,12 @@ let defaultClient: ReturnType<typeof createEmbedClient> | undefined;
 function client() {
   if (!defaultClient) {
     const config = loadConfig();
-    defaultClient = createEmbedClient({ apiKey: config.GEMINI_API_KEY, model: config.EMBED_MODEL, rpm: config.EMBED_RPM, concurrency: config.EMBED_CONCURRENCY });
+    defaultClient = createEmbedClient({
+      apiKey: config.GEMINI_API_KEY,
+      model: config.EMBED_MODEL,
+      rpm: config.EMBED_RPM,
+      concurrency: config.EMBED_CONCURRENCY,
+    });
   }
   return defaultClient;
 }

@@ -19,7 +19,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 | P0 Foundation + contract | done | Terra / review Claude | part/p0-foundation | Docker build unverified (no daemon) |
 | P1 DB, auth, collections | in progress | GPT-6.1 Terra | part/p1-db-auth | Includes Google sign-in (D19) |
 | P2 Storage + upload | not started | — | — | |
-| P3 Embedding client + spike | in review | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D20 |
+| P3 Embedding client + spike | in review | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D21 |
 | P4 Ingestion worker | not started | — | — | |
 | P5 LLM provider | in progress | GPT-6.1 Terra | part/p5-llm-provider | Fake + interface first; then real adapters for gemini, openrouter, opencode (D20) |
 | P6 Retrieval | not started | — | — | |
@@ -54,7 +54,7 @@ P3 did not establish actual maximum fully processed duration/pages: over-limit r
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
 
 ### 2026-11-14 · GPT-6.1 Terra · P3 embedding
-- Implemented SDK client, request throttling, retries, synthetic live spike and mocked tests; all four requested checks passed. See D20 for measurements and unresolved truncation limits.
+- Implemented SDK client, request throttling, retries, synthetic live spike and mocked tests; all four requested checks passed. See D21 for measurements and unresolved truncation limits.
 - Outside the narrow P3 file scope: dependency manifests/lock, `server/test/embed.test.ts`, `server/.env.example`, architecture, decisions and handoff were necessary for installation, validation and required documentation. No `shared/` changes.
 - Claude should review; P4 must handle video audio separately and investigate semantic boundaries before relying on the documented maxima.
 

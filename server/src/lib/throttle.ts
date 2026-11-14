@@ -11,7 +11,10 @@ export function throttle(concurrency: number, rpm: number) {
     if (timer || active >= concurrency || queue.length === 0) return;
     const delay = Math.max(0, nextStart - Date.now());
     if (delay > 0) {
-      timer = setTimeout(() => { timer = undefined; drain(); }, delay);
+      timer = setTimeout(() => {
+        timer = undefined;
+        drain();
+      }, delay);
       return;
     }
     active++;
@@ -23,7 +26,13 @@ export function throttle(concurrency: number, rpm: number) {
   return function schedule<T>(operation: () => Promise<T>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       queue.push(() => {
-        Promise.resolve().then(operation).then(resolve, reject).finally(() => { active--; drain(); });
+        Promise.resolve()
+          .then(operation)
+          .then(resolve, reject)
+          .finally(() => {
+            active--;
+            drain();
+          });
       });
       drain();
     });

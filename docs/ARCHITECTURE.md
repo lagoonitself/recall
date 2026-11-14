@@ -123,7 +123,7 @@ The browser uploads straight to R2 with a short-lived signed URL, so large files
 
 ### 4.2 Splitting rules
 
-`gemini-embedding-2` takes one file per call. Google's documentation lists 8,192 input tokens, 6 PDF pages, 180 seconds of audio and 120 seconds of video; video audio tracks are not processed. P3's over-limit requests returned vectors, but did not establish whether content was truncated. Keep `AUDIO_PIECE_SEC` at the conservative default of 150 and retain the product's 80-second video cap. Every file is split so each piece fits, and each piece keeps its location so citations can point to it. See D20 for observations and the need to process video audio separately.
+`gemini-embedding-2` takes one file per call. Google's documentation lists 8,192 input tokens, 6 PDF pages, 180 seconds of audio and 120 seconds of video; video audio tracks are not processed. P3's over-limit requests returned vectors, but did not establish whether content was truncated. Keep `AUDIO_PIECE_SEC` at the conservative default of 150 and retain the product's 80-second video cap. Every file is split so each piece fits, and each piece keeps its location so citations can point to it. See D21 for observations and the need to process video audio separately.
 
 **Video is capped at 80 seconds** as a conservative product limit, so a video is never split. The browser reads the duration before uploading and refuses longer videos, and the server checks again with `ffprobe` and rejects anything over 80 s. The same cap applies to videos attached to chat messages. **Audio has no length cap.** Long audio is split into `AUDIO_PIECE_SEC` pieces.
 

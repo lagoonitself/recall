@@ -12,7 +12,10 @@ function pdf(pages: number): Buffer {
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     `<< /Type /Pages /Count ${pages} /Kids [${Array.from({ length: pages }, (_, index) => `${index + 3} 0 R`).join(' ')}] >>`,
-    ...Array.from({ length: pages }, () => '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>'),
+    ...Array.from(
+      { length: pages },
+      () => '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>',
+    ),
   ];
   let output = '%PDF-1.4\n';
   const offsets = [0];
@@ -22,7 +25,10 @@ function pdf(pages: number): Buffer {
   }
   const xref = Buffer.byteLength(output);
   output += `xref\n0 ${offsets.length}\n0000000000 65535 f \n`;
-  output += offsets.slice(1).map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
+  output += offsets
+    .slice(1)
+    .map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`)
+    .join('');
   output += `trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
   return Buffer.from(output);
 }
@@ -30,12 +36,18 @@ function pdf(pages: number): Buffer {
 async function probe(name: string, contents: string | { inlineData: { mimeType: string; data: string } }) {
   const start = performance.now();
   try {
-    const result = await ai.models.embedContent({ model: 'gemini-embedding-2', contents, config: { outputDimensionality: 1536 } });
+    const result = await ai.models.embedContent({
+      model: 'gemini-embedding-2',
+      contents,
+      config: { outputDimensionality: 1536 },
+    });
     const vector = result.embeddings?.[0]?.values;
     if (!vector) throw new Error('No embedding returned');
     vectors.set(name, vector);
     const norm = Math.hypot(...vector);
-    console.log(`${name}: OK, dimensions=${vector.length}, norm=${norm.toFixed(6)}, latency=${Math.round(performance.now() - start)}ms`);
+    console.log(
+      `${name}: OK, dimensions=${vector.length}, norm=${norm.toFixed(6)}, latency=${Math.round(performance.now() - start)}ms`,
+    );
   } catch (error) {
     const err = error as { status?: number; message?: string };
     console.log(`${name}: FAILED status=${err.status ?? 'unknown'} ${err.message ?? ''}`);
@@ -64,6 +76,8 @@ for (const name of ['image-red-png', 'image-blue-jpeg']) {
   const image = vectors.get(name);
   if (query && image) {
     const dot = query.reduce((sum, value, index) => sum + value * image[index]!, 0);
-    console.log(`cosine(text-red, ${name})=${(dot / (Math.hypot(...query) * Math.hypot(...image))).toFixed(6)}`);
+    console.log(
+      `cosine(text-red, ${name})=${(dot / (Math.hypot(...query) * Math.hypot(...image))).toFixed(6)}`,
+    );
   }
 }
