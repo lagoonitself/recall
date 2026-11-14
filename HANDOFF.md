@@ -19,7 +19,7 @@ Status values: `not started` · `in progress` · `in review` · `done` · `block
 | P0 Foundation + contract | done | Terra / review Claude | part/p0-foundation | Docker build unverified (no daemon) |
 | P1 DB, auth, collections | in progress | GPT-6.1 Terra | part/p1-db-auth | Includes Google sign-in (D19) |
 | P2 Storage + upload | not started | — | — | |
-| P3 Embedding client + spike | in review | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D21 |
+| P3 Embedding client + spike | done | GPT-6.1 Terra | part/p3-embedding | Boundary/truncation investigation remains; see D21 |
 | P4 Ingestion worker | not started | — | — | |
 | P5 LLM provider | in progress | GPT-6.1 Terra | part/p5-llm-provider | Fake + interface first; then real adapters for gemini, openrouter, opencode (D20) |
 | P6 Retrieval | not started | — | — | |
