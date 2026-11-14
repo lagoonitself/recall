@@ -20,7 +20,19 @@ export const UserSchema = z.object({
   createdAt: date,
 });
 export type User = z.infer<typeof UserSchema>;
-/** Sign-in is Google only (D22): the browser gets an ID token from Google Identity Services and sends it here. The server verifies it against GOOGLE_CLIENT_ID. */
+/** Email + password sign-in (D28). The server lower-cases the email. */
+export const RegisterRequestSchema = z.object({
+  email: z.string().trim().email('Enter a valid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(200),
+  name: z.string().trim().max(200).optional(),
+});
+export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
+export const LoginRequestSchema = z.object({
+  email: z.string().trim().email('Enter a valid email address'),
+  password: z.string().min(1, 'Enter your password').max(200),
+});
+export type LoginRequest = z.infer<typeof LoginRequestSchema>;
+/** Google sign-in: the browser gets an ID token from Google Identity Services and sends it here. The server verifies it against GOOGLE_CLIENT_ID. */
 export const GoogleLoginRequestSchema = z.object({ credential: z.string().min(1).max(4096) });
 export type GoogleLoginRequest = z.infer<typeof GoogleLoginRequestSchema>;
 /** Public client config the browser needs before login. `googleClientId` is null when Google sign-in is off. */

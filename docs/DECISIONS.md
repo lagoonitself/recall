@@ -33,6 +33,7 @@ Append-only. Newest at the bottom. Each entry: date, decision, why, who decided.
 | D26 | 2026-11-14 | Public README names Gemini Embedding 2 for embeddings and describes agent and description inference as an LLM, without naming an LLM model or provider. | User requested this wording for the GitHub README; implementation and operator configuration are unchanged. | User / Codex |
 
 | D27 | 2026-11-14 | Enforce `force_divisible_by=2` after aspect-ratio scaling for ingested videos. | The existing scale filter can output odd widths (853 for a 640x360 clip), causing libx264 to reject otherwise valid uploads. Preserve the existing 480p conversion and duration cap. | Codex |
+| D28 | 2026-11-14 | **Reverses D22.** Email + password sign-in comes back next to Google: `POST /api/auth/register` and `/login`, `RegisterRequestSchema` / `LoginRequestSchema` in `shared/`. Passwords are hashed with Node's built-in scrypt (`scrypt$salt$hash`), not bcrypt, so no native dependency. Unknown email and wrong password give the same 401 message and timing. Google linking an existing email still clears its password (pre-account takeover guard). No password reset or email verification yet. | The project requirement needs both email/password and Google sign-in. | User / Claude |
 
 ## Pending
 

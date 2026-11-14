@@ -4,6 +4,17 @@ Recall turns a collection of documents, images, audio, and video into a library 
 
 **[Try Recall](https://recall-labs.vercel.app)** · [Local setup](#run-locally) · [Architecture](#architecture) · [Deployment](#deployment)
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/chat-dark.png">
+  <img alt="Recall chat: an answer about a coolant warning light, citing page 42 of an owner manual and a 0:24–1:05 clip of a service video" src="docs/images/chat-light.png">
+</picture>
+
+| Follow the agent's work | Organize material into collections |
+| --- | --- |
+| ![Expanded activity log showing the agent's reasoning, two searches and the two sources it opened](docs/images/activity.png) | ![Library page with three collections](docs/images/library.png) |
+
+<sub>Screenshots use the app's built-in demo data (mock mode), not real files.</sub>
+
 ## What you can do
 
 Keep related material in collections and ask questions across formats without searching each file yourself:
@@ -16,7 +27,8 @@ Keep related material in collections and ask questions across formats without se
 - Read streamed answers with numbered citations such as `[S1]` and `[S2]`
 - Open cited documents and media in place, including full PDF previews and playback from a stored segment's start time
 - Revisit saved conversations, answers, source references, and agent activity
-- Use the responsive interface in light or dark mode, with Google sign-in
+- Use the responsive interface in light or dark mode
+- Sign in with an email and password or with a Google account
 
 For example, a collection could contain an equipment manual, a photo of its controls, a maintenance recording, and a short demonstration video. A question about a warning symbol can retrieve the matching manual page and related media, then link the answer back to those sources.
 
@@ -165,7 +177,7 @@ Leave `VITE_API_URL` unset or empty in `client/.env`. Open the local URL printed
 
 ### Connect the full application
 
-For real ingestion and retrieval, provision Neon Postgres with pgvector 0.8 or newer, a private R2 bucket, a Gemini API key for embeddings, and a Google OAuth web client. Install `ffmpeg`, `ffprobe`, and Poppler's `pdftoppm` on your `PATH`; the backend Docker image includes them.
+For real ingestion and retrieval, provision Neon Postgres with pgvector 0.8 or newer, a private R2 bucket, a Gemini API key for embeddings, and (for Google sign-in) a Google OAuth web client. Install `ffmpeg`, `ffprobe`, and Poppler's `pdftoppm` on your `PATH`; the backend Docker image includes them.
 
 Create `server/.env` with the following keys, replacing the example values with your own configuration. The defaults for omitted settings come from `server/src/lib/config.ts`.
 
@@ -198,7 +210,7 @@ Create `client/.env` so the browser calls the local API:
 VITE_API_URL=http://localhost:3000
 ```
 
-Add `http://localhost:5173` to the Google OAuth client's authorized JavaScript origins. The browser obtains the public client ID from `/api/auth/config`; Google sign-in is the only production authentication flow.
+Add `http://localhost:5173` to the Google OAuth client's authorized JavaScript origins. The browser obtains the public client ID from `/api/auth/config`. Email and password sign-in needs no extra setup; if `GOOGLE_CLIENT_ID` is empty, only email sign-in is offered.
 
 Configure the private R2 bucket's browser CORS policy to allow uploads and previews from `http://localhost:5173`. Allow `PUT`, `GET`, and `HEAD`, permit required headers including `Content-Type` and `Range`, and expose range-response headers for PDF viewing. [Deployment instructions](docs/DEPLOY.md) include the bucket setup and CORS policy.
 
@@ -240,6 +252,8 @@ Audio has no separate duration cap, but file size and account quotas still apply
 Authentication and ownership checks apply at the API and retrieval layers, and storage credentials stay on the server.
 
 - Google ID tokens are verified server-side, then exchanged for an application JSON Web Token (JWT)
+- Passwords are stored only as salted scrypt hashes. A wrong password and an unknown email get the same error and take the same time, and sign-in attempts are rate limited
+- When Google sign-in links an email that already has a password, the password is removed, so an account someone else registered with your email cannot keep access
 - Database queries and source access are scoped to the authenticated user
 - The R2 bucket stays private; the browser receives short-lived signed URLs after ownership checks
 - Zod validates API inputs and shared streaming event shapes; tool arguments are validated on the server
@@ -282,6 +296,7 @@ The API uses `/api` paths, JSON responses for regular routes, and a multipart re
 | Routes | Purpose |
 | --- | --- |
 | `GET /api/health` | Lightweight availability check |
+| `POST /api/auth/register`, `POST /api/auth/login` | Email and password sign-up and sign-in |
 | `GET /api/auth/config`, `POST /api/auth/google`, `GET /api/auth/me` | Public sign-in configuration, Google sign-in, current user |
 | `GET/POST /api/collections`, `PATCH/DELETE /api/collections/:id` | Collection management |
 | `POST /api/files/upload-url`, `POST /api/files/:id/complete` | Direct upload preparation and completion |
@@ -305,6 +320,8 @@ npm test
 npm run build
 ```
 
+`npm test` needs no database or credentials for its unit tests. Sign-in, for example, is covered by `server/src/routes/auth.test.ts` (an in-memory users table), `client/src/components/EmailSignIn.test.tsx`, `client/src/pages/Auth.test.tsx` and `client/src/lib/api.test.ts`.
+
 Integration suites use a separate `TEST_DATABASE_URL` and, for storage tests, test R2 configuration. Some suites skip when their required credentials are absent. Use isolated test resources: these suites create and remove data. Live model contracts are opt-in; see the server test files for their environment gates.
 
 Read [HANDOFF.md](HANDOFF.md) for recorded verification results and unresolved failures. Mock-mode checks demonstrate UI behavior; they do not establish that production sign-in, uploads, or model calls work.
@@ -322,7 +339,7 @@ The deployment target is a static frontend on Vercel and a Docker backend on Ren
 
 The frontend calls the backend directly for streaming chat. The backend image includes ffmpeg and Poppler and runs as a non-root user.
 
-The stack targets free service plans, but storage, model requests, compute, and monthly account quotas still apply. Free-tier availability and limits can change, and an API or database that scales to zero can add startup latency. [docs/DEPLOY.md](docs/DEPLOY.md) contains infrastructure setup steps; use Google-only authentication and the current source schemas where older examples differ.
+The stack targets free service plans, but storage, model requests, compute, and monthly account quotas still apply. Free-tier availability and limits can change, and an API or database that scales to zero can add startup latency. [docs/DEPLOY.md](docs/DEPLOY.md) contains infrastructure setup steps; use Google or email/password authentication and the current source schemas where older examples differ.
 
 ## Project status and further reading
 

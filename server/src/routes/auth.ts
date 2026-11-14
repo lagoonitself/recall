@@ -1,7 +1,9 @@
 import { Router } from 'express';
+import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+import { promisify } from 'node:util';
 import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 import type pg from 'pg';
-import { GoogleLoginRequestSchema } from '@app/shared';
+import { GoogleLoginRequestSchema, LoginRequestSchema, RegisterRequestSchema } from '@app/shared';
 import { validateBody } from '../lib/validation.js';
 import { HttpError } from '../lib/errors.js';
 import { requireAuth, signToken } from '../lib/auth.js';
@@ -16,6 +18,7 @@ type UserRow = {
   name: string | null;
   avatar_url: string | null;
   created_at: Date;
+  password_hash: string | null;
 };
 const publicUser = (row: UserRow) => ({
   id: row.id,
@@ -24,6 +27,25 @@ const publicUser = (row: UserRow) => ({
   avatarUrl: row.avatar_url,
   createdAt: row.created_at.toISOString(),
 });
+// Passwords are hashed with scrypt (built into Node, no native dependency), stored as `scrypt$salt$hash` in base64.
+const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
+const KEY_LENGTH = 64;
+export async function hashPassword(password: string) {
+  const salt = randomBytes(16);
+  const hash = await scryptAsync(password, salt, KEY_LENGTH);
+  return `scrypt$${salt.toString('base64')}$${hash.toString('base64')}`;
+}
+export async function verifyPassword(password: string, stored: string) {
+  const [scheme, salt, hash] = stored.split('$');
+  if (scheme !== 'scrypt' || !salt || !hash) return false;
+  const expected = Buffer.from(hash, 'base64');
+  if (expected.length !== KEY_LENGTH) return false;
+  const actual = await scryptAsync(password, Buffer.from(salt, 'base64'), KEY_LENGTH);
+  return timingSafeEqual(expected, actual);
+}
+// Checked when the email has no password, so a missing account takes as long as a wrong password.
+const DUMMY_HASH = hashPassword('recall-timing-equaliser');
+const invalid = () => new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
 const duplicate = (error: unknown) =>
   typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
 
@@ -37,6 +59,28 @@ export function authRouter(
   const limiter = rateLimit({ limit: 10, windowMs: 60_000 });
   const respond = (row: UserRow) => ({ token: signToken(row.id, secret), user: publicUser(row) });
   router.get('/config', (_req, res) => res.json({ googleClientId: googleClientId || null }));
+  router.post('/register', limiter, validateBody(RegisterRequestSchema), async (req, res) => {
+    const { email, password, name } = RegisterRequestSchema.parse(req.body);
+    const hash = await hashPassword(password);
+    try {
+      const result = await pool().query(
+        'INSERT INTO users(email, password_hash, name) VALUES ($1,$2,$3) RETURNING *',
+        [email.toLowerCase(), hash, name || null],
+      );
+      res.status(201).json(respond(result.rows[0]));
+    } catch (error) {
+      if (duplicate(error)) throw new HttpError(409, 'CONFLICT', 'Email already registered');
+      throw error;
+    }
+  });
+  router.post('/login', limiter, validateBody(LoginRequestSchema), async (req, res) => {
+    const { email, password } = LoginRequestSchema.parse(req.body);
+    const result = await pool().query('SELECT * FROM users WHERE email = $1', [email.toLowerCase()]);
+    const user: UserRow | undefined = result.rows[0];
+    const matches = await verifyPassword(password, user?.password_hash ?? (await DUMMY_HASH));
+    if (!user?.password_hash || !matches) throw invalid();
+    res.json(respond(user));
+  });
   router.post('/google', limiter, validateBody(GoogleLoginRequestSchema), async (req, res) => {
     if (!googleClientId) throw new HttpError(404, 'NOT_FOUND', 'Google sign-in is disabled');
     let payload: TokenPayload | undefined;
@@ -48,8 +92,9 @@ export function authRouter(
     if (!payload?.sub || !payload.email || payload.email_verified !== true)
       throw new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid Google credential');
     const email = payload.email.trim().toLowerCase();
-    // An existing row with the same verified email is linked to this Google account. Any legacy password from
-    // before D22 is dropped so it can't outlive Google's proof of ownership.
+    // An existing row with the same verified email is linked to this Google account and its password is dropped:
+    // password sign-up never proved ownership of the address, so a password set by whoever registered first must
+    // not survive Google's proof (pre-account takeover). The owner keeps access through Google.
     const existing = await pool().query('SELECT * FROM users WHERE google_sub = $1', [payload.sub]);
     if (existing.rowCount) return res.json(respond(existing.rows[0]));
     try {
