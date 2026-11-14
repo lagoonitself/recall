@@ -280,11 +280,17 @@ export function FilePreview({ file, initialPage, onClose }: FilePreviewProps) {
     }
   };
 
-  const sizeMb = (file.sizeBytes / 1024 / 1024).toFixed(2);
+  const sizeLabel = !file.sizeBytes
+    ? ''
+    : file.sizeBytes < 1024
+      ? `${file.sizeBytes} B`
+      : file.sizeBytes < 1024 * 1024
+        ? `${Math.round(file.sizeBytes / 1024)} KB`
+        : `${(file.sizeBytes / 1024 / 1024).toFixed(1)} MB`;
   const metadataLabel =
     file.modality === 'pdf' && totalPages > 0
-      ? `PDF · ${totalPages} ${totalPages === 1 ? 'page' : 'pages'} · ${sizeMb} MB`
-      : `${file.modality.toUpperCase()} · ${sizeMb} MB`;
+      ? [`PDF`, `${totalPages} ${totalPages === 1 ? 'page' : 'pages'}`, sizeLabel].filter(Boolean).join(' · ')
+      : [file.modality.toUpperCase(), sizeLabel].filter(Boolean).join(' · ');
 
   return (
     <div className="preview-backdrop" onClick={onClose} role="presentation">
@@ -508,7 +514,11 @@ export function FilePreview({ file, initialPage, onClose }: FilePreviewProps) {
               currentPage={currentPage}
               onPageChange={setCurrentPage}
               totalPages={totalPages}
-              onTotalPages={setTotalPages}
+              onTotalPages={(n: number) => {
+                setTotalPages(n);
+                // A citation can point past the end (e.g. stale index); never show "42 of 14".
+                setCurrentPage((p) => (n > 0 && p > n ? 1 : p));
+              }}
               scale={pdfScale}
               onScaleChange={setPdfScale}
               isFitWidth={isPdfFitWidth}

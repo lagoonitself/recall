@@ -587,6 +587,11 @@ function ThumbnailItem({ pageNum, pdfDoc, isActive, onClick }: ThumbnailItemProp
     };
   }, [isVisible, rendered, pdfDoc, pageNum]);
 
+  // Keep the active page visible in the rail while the reader scrolls the document.
+  useEffect(() => {
+    if (isActive) containerRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [isActive]);
+
   return (
     <button
       type="button"

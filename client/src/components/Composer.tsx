@@ -316,6 +316,8 @@ export function Composer({
               multiple
               className="visually-hidden"
               id="file-attachment-input"
+              tabIndex={-1}
+              aria-hidden="true"
               onChange={(e: ChangeEvent<HTMLInputElement>) => {
                 void handleAddFiles(e.target.files);
                 e.target.value = '';

@@ -82,6 +82,7 @@ export const api = {
       method: 'POST',
       body: body(UploadUrlRequestSchema.parse(value)),
     }),
+  file: (id: string) => request(`/files/${id}`, FileResponseSchema),
   complete: (id: string) => request(`/files/${id}/complete`, FileResponseSchema, { method: 'POST' }),
   deleteFile: (id: string) => remove(`/files/${id}`),
   conversations: () => request('/conversations', ConversationsResponseSchema),

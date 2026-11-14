@@ -166,6 +166,10 @@ export const handlers = [
     files = files.filter((item) => item.collectionId !== params.id);
     return new HttpResponse(null, { status: 204 });
   }),
+  http.get('*/api/files/:id', ({ params }) => {
+    const file = files.find((item) => item.id === params.id);
+    return file ? HttpResponse.json({ file }) : fail();
+  }),
   http.get('*/api/files', ({ request }) => {
     const id = new URL(request.url).searchParams.get('collectionId');
     return HttpResponse.json({ files: files.filter((file) => !id || file.collectionId === id) });

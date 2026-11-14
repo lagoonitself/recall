@@ -369,7 +369,7 @@ export function ChatPage() {
             </button>
 
             <h1 className="chat-title">
-              {currentConversation?.title || (conversationId ? 'Untitled conversation' : 'Recall')}
+              {currentConversation?.title || (conversationId ? 'Untitled conversation' : 'New chat')}
             </h1>
           </div>
 

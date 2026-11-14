@@ -3,8 +3,7 @@
 @import '@fontsource-variable/geist-mono';
 @import '@fontsource-variable/newsreader';
 
-/* Order matters: legacy first so new primitives win; tokens + base are owned by integration. */
-@import './styles/legacy-base.css';
+/* tokens + base are owned by integration. */
 @import './styles/tokens.css';
 @import './styles/base.css';
 

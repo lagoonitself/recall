@@ -286,3 +286,10 @@ p {
     scroll-behavior: auto !important;
   }
 }
+
+/* App boot (auth check) */
+.app-boot {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+}

@@ -10,7 +10,13 @@ import { ChatPage } from './pages/Chat';
 import './style.css';
 function Protected() {
   const { user, loading } = useAuth();
-  if (loading) return <main className="container">Loading your library…</main>;
+  if (loading)
+    return (
+      <main className="app-boot" aria-busy="true" aria-live="polite">
+        <span className="spinner" />
+        <span className="visually-hidden">Loading your library</span>
+      </main>
+    );
   return user ? <AppShell /> : <Navigate to="/login" replace />;
 }
 async function start() {

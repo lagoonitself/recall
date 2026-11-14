@@ -40,17 +40,9 @@ export function formatLocation(source: Source): string {
   return '';
 }
 
-/** Local helper to fetch a LibraryFile by ID if GET /api/files/:id exists */
 async function fetchFile(fileId: string): Promise<LibraryFile | null> {
-  const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-  const token = localStorage.getItem('recall.token');
-  const headers = new Headers();
-  if (token) headers.set('Authorization', `Bearer ${token}`);
   try {
-    const res = await fetch(`${base}/api/files/${fileId}`, { headers });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.file as LibraryFile;
+    return (await api.file(fileId)).file;
   } catch {
     return null;
   }
@@ -111,11 +103,6 @@ export function SourceDetailPanel({ source, index, onClose }: SourceDetailPanelP
   const displayNum = index ?? (parseInt(source.sid.replace(/\D/g, ''), 10) || 1);
   const loc = formatLocation(source);
 
-  // Cast PdfViewer to optionally accept onOpenDocument without type errors
-  const PdfViewerWithProp = PdfViewer as React.ComponentType<
-    React.ComponentProps<typeof PdfViewer> & { onOpenDocument?: () => void }
-  >;
-
   return (
     <div className="source-detail-panel" id={`source-viewer-${source.sid}`}>
       <div className="source-detail-header">
@@ -155,12 +142,11 @@ export function SourceDetailPanel({ source, index, onClose }: SourceDetailPanelP
 
       <div className="source-detail-body">
         {source.modality === 'pdf' && (
-          <PdfViewerWithProp
+          <PdfViewer
             chunkId={source.chunkId}
             page={source.location.page}
             thumbUrl={source.thumbUrl}
             fileName={source.fileName}
-            onOpenDocument={handleOpenFullDocument}
           />
         )}
 
