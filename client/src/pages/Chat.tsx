@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import type { Conversation, Collection, Message, SseEvent } from '@app/shared';
+import type { Conversation, Collection, Message, SseEvent, Source } from '@app/shared';
 import { api, ApiError } from '../lib/api';
 import { streamMessage } from '../lib/sse';
 import { MessageList, type StreamingMessageState } from '../components/MessageList';
@@ -27,6 +27,8 @@ export function ChatPage() {
   const [streamingMessage, setStreamingMessage] = useState<StreamingMessageState | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastSubmissionRef = useRef<{ text: string; files: File[] } | null>(null);
+  /** Conversation this page just created: its URL change must not reload (and wipe) the optimistic messages. */
+  const createdHereRef = useRef<string | null>(null);
 
   // Auto-scroll anchor
   const scrollEndRef = useRef<HTMLDivElement | null>(null);
@@ -72,6 +74,8 @@ export function ChatPage() {
 
   useEffect(() => {
     if (conversationId) {
+      if (createdHereRef.current === conversationId) return;
+      createdHereRef.current = null;
       void loadConversation(conversationId);
     } else {
       setCurrentConversation(null);
@@ -108,6 +112,7 @@ export function ChatPage() {
       try {
         const res = await api.createConversation(selectedCollectionId);
         targetConvId = res.conversation.id;
+        createdHereRef.current = targetConvId;
         setCurrentConversation(res.conversation);
         setConversations((prev) => [res.conversation, ...prev]);
         navigate(`/chat/${targetConvId}`, { replace: true });
@@ -159,6 +164,10 @@ export function ChatPage() {
     abortControllerRef.current = controller;
 
     const stepsMap = new Map<number, ActivityStepData>();
+    // The finished message is built from these locals, not inside a state updater (updaters must stay pure:
+    // React runs them twice in StrictMode, which appended the answer twice).
+    let answer = '';
+    let finalSources: Source[] = [];
 
     const handleEvent = (event: SseEvent) => {
       switch (event.event) {
@@ -167,6 +176,7 @@ export function ChatPage() {
             seq: event.data.seq,
             kind: event.data.kind,
             reasoningText: '',
+            startedAtMs: Date.now(),
           });
           setStreamingMessage((prev) => (prev ? { ...prev, steps: Array.from(stepsMap.values()) } : null));
           break;
@@ -201,48 +211,47 @@ export function ChatPage() {
           const step = stepsMap.get(event.data.seq);
           if (step) {
             step.ms = event.data.ms;
+            step.endedAtMs = Date.now();
             setStreamingMessage((prev) => (prev ? { ...prev, steps: Array.from(stepsMap.values()) } : null));
           }
           break;
         }
         case 'answer.delta': {
+          answer += event.data.text;
           setStreamingMessage((prev) => (prev ? { ...prev, content: prev.content + event.data.text } : null));
           break;
         }
         case 'sources': {
+          finalSources = event.data;
           setStreamingMessage((prev) => (prev ? { ...prev, sources: event.data } : null));
           break;
         }
         case 'done': {
-          const finalMsgId = event.data.messageId;
-          setStreamingMessage((prev) => {
-            if (!prev) return null;
-            const completedMsg: Message = {
-              id: finalMsgId,
-              conversationId: targetConvId,
-              role: 'assistant',
-              content: prev.content,
-              attachments: [],
-              sources: prev.sources,
-              steps: prev.steps.map((s, idx) => ({
-                id: idx + 1,
-                seq: s.seq,
-                kind: s.kind,
-                payload: {
-                  text: s.reasoningText,
-                  name: s.toolName,
-                  args: s.toolArgs,
-                  summary: s.toolSummary,
-                  items: s.toolItems,
-                },
-                startedAt: new Date().toISOString(),
-                endedAt: new Date().toISOString(),
-              })),
-              createdAt: new Date().toISOString(),
-            };
-            setMessages((existing) => [...existing, completedMsg]);
-            return null;
-          });
+          const completedMsg: Message = {
+            id: event.data.messageId,
+            conversationId: targetConvId,
+            role: 'assistant',
+            content: answer,
+            attachments: [],
+            sources: finalSources,
+            steps: Array.from(stepsMap.values()).map((s, idx) => ({
+              id: idx + 1,
+              seq: s.seq,
+              kind: s.kind,
+              payload: {
+                text: s.reasoningText,
+                name: s.toolName,
+                args: s.toolArgs,
+                summary: s.toolSummary,
+                items: s.toolItems,
+              },
+              startedAt: new Date(s.startedAtMs ?? Date.now()).toISOString(),
+              endedAt: new Date(s.endedAtMs ?? Date.now()).toISOString(),
+            })),
+            createdAt: new Date().toISOString(),
+          };
+          setMessages((existing) => [...existing, completedMsg]);
+          setStreamingMessage(null);
           abortControllerRef.current = null;
           void loadInitialData();
           break;

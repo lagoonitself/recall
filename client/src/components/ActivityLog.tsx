@@ -5,6 +5,9 @@ export interface ActivityStepData {
   seq: number;
   kind: StepKind;
   ms?: number;
+  /** Wall-clock times (ms since epoch) so the header can show real elapsed time, model thinking included. */
+  startedAtMs?: number;
+  endedAtMs?: number;
   reasoningText?: string;
   toolName?: string;
   toolArgs?: Record<string, unknown>;
@@ -43,6 +46,8 @@ function normalizeStep(step: AgentStep | ActivityStepData): ActivityStepData {
       seq: step.seq,
       kind: step.kind,
       ms,
+      startedAtMs: new Date(step.startedAt).getTime(),
+      endedAtMs: step.endedAt ? new Date(step.endedAt).getTime() : undefined,
       reasoningText: (payload.text as string) || undefined,
       toolName: (payload.name as string) || undefined,
       toolArgs: (payload.args as Record<string, unknown>) || undefined,
@@ -62,8 +67,13 @@ export function ActivityLog({ steps, isStreaming = false }: ActivityLogProps) {
 
   const normalized = steps.map(normalizeStep);
 
-  const totalMs = normalized.reduce((acc, step) => acc + (step.ms ?? 0), 0);
-  const timeDisplay = totalMs > 0 ? `${(totalMs / 1000).toFixed(1)} s` : isStreaming ? 'live' : '0.1 s';
+  const starts = normalized.flatMap((s) => (s.startedAtMs ? [s.startedAtMs] : []));
+  const ends = normalized.flatMap((s) => (s.endedAtMs ? [s.endedAtMs] : []));
+  const totalMs =
+    starts.length && ends.length
+      ? Math.max(0, Math.max(...ends) - Math.min(...starts))
+      : normalized.reduce((acc, step) => acc + (step.ms ?? 0), 0);
+  const timeDisplay = isStreaming && !ends.length ? 'live' : `${(totalMs / 1000).toFixed(1)} s`;
 
   return (
     <details className="activity-log" open={isOpen} onToggle={(e) => setIsOpen(e.currentTarget.open)}>
