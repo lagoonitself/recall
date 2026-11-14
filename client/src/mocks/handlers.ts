@@ -4,10 +4,16 @@ import {
   UpdateCollectionRequestSchema,
   GoogleLoginRequestSchema,
   UploadUrlRequestSchema,
+  CreateConversationRequestSchema,
   type Collection,
   type File as LibraryFile,
   type User,
+  type Conversation,
+  type Message,
+  type Modality,
 } from '@app/shared';
+import chatDemoSse from './fixtures/chat-demo.sse?raw';
+
 const user: User = {
   id: '00000000-0000-4000-8000-000000000001',
   email: 'reader@example.com',
@@ -15,11 +21,117 @@ const user: User = {
   avatarUrl: null,
   createdAt: new Date().toISOString(),
 };
+
 let collections: Collection[] = [];
 let files: LibraryFile[] = [];
+
+// Seed initial conversation
+const defaultConversationId = '00000000-0000-4000-8000-000000000010';
+let conversations: Conversation[] = [
+  {
+    id: defaultConversationId,
+    userId: user.id,
+    collectionId: null,
+    title: 'Vehicle coolant warning',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+  },
+];
+
+const conversationMessages: Record<string, Message[]> = {
+  [defaultConversationId]: [
+    {
+      id: '00000000-0000-4000-8000-000000000020',
+      conversationId: defaultConversationId,
+      role: 'user',
+      content: 'What does the red engine thermometer warning light mean in my vehicle?',
+      attachments: [],
+      sources: [],
+      steps: [],
+      createdAt: new Date(Date.now() - 3600000).toISOString(),
+    },
+    {
+      id: '33333333-3333-4333-8333-333333333333',
+      conversationId: defaultConversationId,
+      role: 'assistant',
+      content:
+        "According to the vehicle's owner manual [S1], the illuminated red thermometer indicator indicates an **engine coolant over-temperature warning**.\n\nThe maintenance video demonstrates how technicians inspect the coolant reservoir level and check the pressure cap [S2].\n\n**Recommended actions:**\n1. Safely pull over and turn off the engine.\n2. Allow the engine to cool for at least 15 minutes before checking fluid levels.\n3. Do not open the radiator pressure cap while the engine is hot.",
+      attachments: [],
+      sources: [
+        {
+          sid: 'S1',
+          chunkId: '11111111-1111-4111-8111-111111111111',
+          fileName: 'owner-manual.pdf',
+          modality: 'pdf',
+          location: { page: 42 },
+          thumbUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400',
+        },
+        {
+          sid: 'S2',
+          chunkId: '22222222-2222-4222-8222-222222222222',
+          fileName: 'coolant-service.mp4',
+          modality: 'video',
+          location: { startSec: 24, endSec: 65 },
+          thumbUrl: 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?w=400',
+        },
+      ],
+      steps: [
+        {
+          id: 1,
+          seq: 0,
+          kind: 'reasoning',
+          payload: {
+            text: 'The user is asking about the engine warning light. I should check the owner manual and maintenance videos in the library.',
+          },
+          startedAt: new Date(Date.now() - 3590000).toISOString(),
+          endedAt: new Date(Date.now() - 3589000).toISOString(),
+        },
+        {
+          id: 2,
+          seq: 1,
+          kind: 'tool_call',
+          payload: {
+            name: 'search_library',
+            args: {
+              query: 'engine coolant temperature warning light',
+              types: ['pdf', 'video'],
+            },
+          },
+          startedAt: new Date(Date.now() - 3589000).toISOString(),
+          endedAt: new Date(Date.now() - 3588900).toISOString(),
+        },
+        {
+          id: 3,
+          seq: 2,
+          kind: 'tool_result',
+          payload: {
+            name: 'search_library',
+            summary: 'Found 2 matching pieces across manuals and service records.',
+            items: [],
+          },
+          startedAt: new Date(Date.now() - 3588900).toISOString(),
+          endedAt: new Date(Date.now() - 3588700).toISOString(),
+        },
+        {
+          id: 4,
+          seq: 3,
+          kind: 'sources_opened',
+          payload: {
+            name: 'open_sources',
+            summary: 'Opened 2 sources: owner-manual.pdf (p. 42) and coolant-service.mp4 (00:24).',
+          },
+          startedAt: new Date(Date.now() - 3588700).toISOString(),
+          endedAt: new Date(Date.now() - 3588400).toISOString(),
+        },
+      ],
+      createdAt: new Date(Date.now() - 3588000).toISOString(),
+    },
+  ],
+};
+
 const reply = () => HttpResponse.json({ token: 'mock-token', user });
 const fail = () =>
   HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Not found.' } }, { status: 404 });
+
 export const handlers = [
   http.get('*/api/auth/config', () =>
     HttpResponse.json({ googleClientId: 'mock-client-id.apps.googleusercontent.com' }),
@@ -60,7 +172,7 @@ export const handlers = [
   }),
   http.post('*/api/files/upload-url', async ({ request }) => {
     const data = UploadUrlRequestSchema.parse(await request.json());
-    const modality =
+    const modality: Modality =
       data.mimeType === 'application/pdf'
         ? 'pdf'
         : data.mimeType.startsWith('image/')
@@ -104,5 +216,202 @@ export const handlers = [
   http.delete('*/api/files/:id', ({ params }) => {
     files = files.filter((item) => item.id !== params.id);
     return new HttpResponse(null, { status: 204 });
+  }),
+
+  // Conversations API
+  http.get('*/api/conversations', () => {
+    return HttpResponse.json({ conversations });
+  }),
+
+  http.post('*/api/conversations', async ({ request }) => {
+    const data = CreateConversationRequestSchema.parse(await request.json().catch(() => ({})));
+    const conversation: Conversation = {
+      id: crypto.randomUUID(),
+      userId: user.id,
+      collectionId: data.collectionId ?? null,
+      title: null,
+      createdAt: new Date().toISOString(),
+    };
+    conversations = [conversation, ...conversations];
+    conversationMessages[conversation.id] = [];
+    return HttpResponse.json({ conversation }, { status: 201 });
+  }),
+
+  http.get('*/api/conversations/:id', ({ params }) => {
+    const id = params.id as string;
+    const conversation = conversations.find((c) => c.id === id);
+    if (!conversation) return fail();
+    const messages = conversationMessages[id] || [];
+    return HttpResponse.json({ conversation, messages });
+  }),
+
+  http.post('*/api/conversations/:id/messages', async ({ params, request }) => {
+    const conversationId = params.id as string;
+    const conversation = conversations.find((c) => c.id === conversationId);
+    if (!conversation) return fail();
+
+    const formData = await request.formData();
+    const text = (formData.get('text') as string) || '';
+    const uploadedFiles = formData.getAll('files') as globalThis.File[];
+
+    if (!conversation.title) {
+      conversation.title = text.slice(0, 32) || 'New conversation';
+    }
+
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      conversationId,
+      role: 'user',
+      content: text,
+      attachments: uploadedFiles.map((f) => {
+        const modality: Modality = f.type.startsWith('image/')
+          ? 'image'
+          : f.type.startsWith('video/')
+            ? 'video'
+            : f.type.startsWith('audio/')
+              ? 'audio'
+              : f.type === 'application/pdf'
+                ? 'pdf'
+                : 'text';
+        return {
+          id: crypto.randomUUID(),
+          name: f.name,
+          mimeType: f.type || 'application/octet-stream',
+          modality,
+        };
+      }),
+      sources: [],
+      steps: [],
+      createdAt: new Date().toISOString(),
+    };
+
+    if (!conversationMessages[conversationId]) {
+      conversationMessages[conversationId] = [];
+    }
+    conversationMessages[conversationId].push(userMessage);
+
+    // Split fixture frames and stream with small delays so dev sees live updates
+    const frames = chatDemoSse
+      .split(/\n\n+/)
+      .map((f) => f.trim())
+      .filter(Boolean)
+      .map((f) => f + '\n\n');
+
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        try {
+          for (const frame of frames) {
+            controller.enqueue(encoder.encode(frame));
+            // Small visible delay between chunks (60ms)
+            await new Promise((resolve) => setTimeout(resolve, 60));
+          }
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    // Save mock assistant response to state
+    const assistantMessage: Message = {
+      id: '33333333-3333-4333-8333-333333333333',
+      conversationId,
+      role: 'assistant',
+      content:
+        "According to the vehicle's owner manual [S1], the illuminated red thermometer indicator indicates an **engine coolant over-temperature warning**.\n\nThe maintenance video demonstrates how technicians inspect the coolant reservoir level and check the pressure cap [S2].\n\n**Recommended actions:**\n1. Safely pull over and turn off the engine.\n2. Allow the engine to cool for at least 15 minutes before checking fluid levels.\n3. Do not open the radiator pressure cap while the engine is hot.",
+      attachments: [],
+      sources: [
+        {
+          sid: 'S1',
+          chunkId: '11111111-1111-4111-8111-111111111111',
+          fileName: 'owner-manual.pdf',
+          modality: 'pdf',
+          location: { page: 42 },
+          thumbUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400',
+        },
+        {
+          sid: 'S2',
+          chunkId: '22222222-2222-4222-8222-222222222222',
+          fileName: 'coolant-service.mp4',
+          modality: 'video',
+          location: { startSec: 24, endSec: 65 },
+          thumbUrl: 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?w=400',
+        },
+      ],
+      steps: [
+        {
+          id: 1,
+          seq: 0,
+          kind: 'reasoning',
+          payload: {
+            text: 'The user is asking about the engine warning light. I should check the owner manual and maintenance videos in the library.',
+          },
+          startedAt: new Date().toISOString(),
+          endedAt: new Date().toISOString(),
+        },
+        {
+          id: 2,
+          seq: 1,
+          kind: 'tool_call',
+          payload: {
+            name: 'search_library',
+            args: {
+              query: 'engine coolant temperature warning light',
+              types: ['pdf', 'video'],
+            },
+          },
+          startedAt: new Date().toISOString(),
+          endedAt: new Date().toISOString(),
+        },
+        {
+          id: 3,
+          seq: 2,
+          kind: 'tool_result',
+          payload: {
+            name: 'search_library',
+            summary: 'Found 2 matching pieces across manuals and service records.',
+            items: [],
+          },
+          startedAt: new Date().toISOString(),
+          endedAt: new Date().toISOString(),
+        },
+        {
+          id: 4,
+          seq: 3,
+          kind: 'sources_opened',
+          payload: {
+            name: 'open_sources',
+            summary: 'Opened 2 sources: owner-manual.pdf (p. 42) and coolant-service.mp4 (00:24).',
+          },
+          startedAt: new Date().toISOString(),
+          endedAt: new Date().toISOString(),
+        },
+      ],
+      createdAt: new Date().toISOString(),
+    };
+    conversationMessages[conversationId].push(assistantMessage);
+
+    return new HttpResponse(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
+  }),
+
+  // Chunk media URL endpoint (signed URL for piece or thumbnail)
+  http.get('*/api/chunks/:id/media', ({ params, request }) => {
+    const isThumb = new URL(request.url).searchParams.get('thumbnail') === 'true';
+    if (params.id === '11111111-1111-4111-8111-111111111111') {
+      return HttpResponse.json({
+        url: isThumb
+          ? 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400'
+          : 'https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf',
+      });
+    }
+    return HttpResponse.json({
+      url: 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?w=400',
+    });
   }),
 ];
