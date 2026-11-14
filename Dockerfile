@@ -19,5 +19,6 @@ COPY --from=build /app/shared/package.json ./shared/package.json
 COPY --from=build /app/shared/dist ./shared/dist
 COPY --from=build /app/server/package.json ./server/package.json
 COPY --from=build /app/server/dist ./server/dist
+COPY --from=build /app/server/src/db/migrations ./server/src/db/migrations
 ENV NODE_ENV=production
 CMD ["node", "server/dist/index.js"]
