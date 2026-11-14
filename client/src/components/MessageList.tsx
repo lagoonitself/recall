@@ -1,4 +1,5 @@
 import React, { memo, useMemo, useState, useRef, useCallback } from 'react';
+import { LogoMark } from './brand/Logo';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import type { Message, Source, AgentStep } from '@app/shared';
@@ -214,7 +215,7 @@ const MessageItem = memo(function MessageItem({
       <div className="assistant-layout">
         {/* Small 20px accent "r" avatar mark */}
         <div className="assistant-avatar" aria-hidden="true">
-          r
+          <LogoMark size={14} pulse={Boolean(isStreaming)} />
         </div>
 
         <div className="assistant-body">

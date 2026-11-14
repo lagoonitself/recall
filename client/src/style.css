@@ -13,3 +13,6 @@
 @import './styles/chat.css';
 @import './styles/composer.css';
 @import './styles/messages.css';
+
+/* Visual polish layer: brand, ambient surfaces, motion. Loaded last on purpose. */
+@import './styles/polish.css';

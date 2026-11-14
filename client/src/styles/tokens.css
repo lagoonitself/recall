@@ -6,7 +6,7 @@
 :root {
   /* Type */
   --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-serif: 'Newsreader Variable', Georgia, 'Times New Roman', serif;
+  --font-serif: var(--font-sans); /* Geist everywhere, Vercel-style */
   --font-mono: 'Geist Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 
   --text-xs: 0.75rem; /* 12 meta, timestamps */
@@ -37,8 +37,8 @@
 
   /* Radius */
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
   --radius-full: 999px;
 
   /* Layout */
@@ -48,69 +48,83 @@
   --sidebar-width: 272px;
 
   /* Motion */
-  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --duration-fast: 120ms;
   --duration-base: 200ms;
   --duration-slow: 320ms;
 
-  /* Color — light (warm neutral paper, ink, one deep-green accent) */
+  /* Color — light. Monochrome, after Vercel's Geist: white, ink, hairline grays. */
   color-scheme: light;
-  --color-bg: #f7f6f3;
+  --color-bg: #ffffff;
   --color-surface: #ffffff;
-  --color-surface-2: #f2f1ed; /* wells, code, hover rows */
-  --color-surface-3: #e9e7e1; /* pressed, selected */
-  --color-border: #e4e2dc;
-  --color-border-strong: #d1cec6;
-  --color-text: #1b1b19;
-  --color-text-2: #5d5c57;
-  --color-text-3: #8c8a84;
-  --color-accent: #1f3a2e; /* primary buttons, active nav, focus */
-  --color-accent-hover: #2a4c3c;
+  --color-surface-2: #fafafa; /* wells, hover rows */
+  --color-surface-3: #f2f2f2; /* pressed, selected, bubbles */
+  --color-border: #ebebeb;
+  --color-border-strong: #d9d9d9;
+  --color-text: #171717;
+  --color-text-2: #666666;
+  --color-text-3: #737373;
+  --color-accent: #171717; /* primary buttons, active nav, focus */
+  --color-accent-hover: #383838;
   --color-accent-fg: #ffffff;
-  --color-accent-soft: #e5ece7; /* citation chips, selected items */
-  --color-accent-soft-fg: #1f3a2e;
-  --color-danger: #b42318;
-  --color-danger-soft: #fbeae8;
-  --color-success: #2f6b4a;
-  --color-success-soft: #e6f1ea;
-  --color-warning: #8a5a00;
-  --color-warning-soft: #f8efd9;
-  --color-overlay: rgb(20 20 18 / 0.48);
-  --color-focus: #1f3a2e;
+  --color-accent-soft: #f2f2f2; /* citation chips, selected items */
+  --color-accent-soft-fg: #171717;
+  --color-danger: #cb2a2f;
+  --color-danger-soft: #fff0f0;
+  --color-success: #297a3a;
+  --color-success-soft: #ebf8ee;
+  --color-warning: #a35200;
+  --color-warning-soft: #fff6e5;
+  --color-overlay: rgb(0 0 0 / 0.4);
+  --color-focus: #171717;
 
-  --shadow-sm: 0 1px 2px rgb(20 20 18 / 0.06);
-  --shadow-md: 0 4px 16px -4px rgb(20 20 18 / 0.12), 0 1px 3px rgb(20 20 18 / 0.06);
-  --shadow-lg: 0 24px 64px -16px rgb(20 20 18 / 0.28), 0 2px 8px rgb(20 20 18 / 0.08);
+  /* Monochrome atmosphere hooks used by polish.css */
+  --grid-line: rgb(0 0 0 / 0.06);
+  --glass: rgb(255 255 255 / 0.8);
+  --glass-border: #ebebeb;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-md: 0 0 0 1px rgb(0 0 0 / 0.04), 0 2px 2px rgb(0 0 0 / 0.04), 0 8px 8px -8px rgb(0 0 0 / 0.04);
+  --shadow-lg:
+    0 0 0 1px rgb(0 0 0 / 0.06), 0 1px 1px rgb(0 0 0 / 0.02), 0 4px 8px -4px rgb(0 0 0 / 0.04),
+    0 16px 24px -8px rgb(0 0 0 / 0.06);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --color-bg: #121211;
-    --color-surface: #1a1a19;
-    --color-surface-2: #222220;
-    --color-surface-3: #2c2c29;
-    --color-border: #2e2e2b;
-    --color-border-strong: #3d3d39;
-    --color-text: #ecebe7;
-    --color-text-2: #a9a8a2;
-    --color-text-3: #75746f;
-    --color-accent: #cfe3d6;
-    --color-accent-hover: #e1eee5;
-    --color-accent-fg: #102219;
-    --color-accent-soft: #21342a;
-    --color-accent-soft-fg: #cfe3d6;
-    --color-danger: #f0897d;
-    --color-danger-soft: #3a1d1a;
-    --color-success: #8fcaa6;
-    --color-success-soft: #1c2f24;
-    --color-warning: #e2b862;
-    --color-warning-soft: #33290f;
-    --color-overlay: rgb(0 0 0 / 0.62);
-    --color-focus: #cfe3d6;
-    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
-    --shadow-md: 0 4px 16px -4px rgb(0 0 0 / 0.5);
-    --shadow-lg: 0 24px 64px -16px rgb(0 0 0 / 0.7);
+    --color-bg: #0a0a0a;
+    --color-surface: #0a0a0a;
+    --color-surface-2: #111111;
+    --color-surface-3: #1a1a1a;
+    --color-border: #242424;
+    --color-border-strong: #333333;
+    --color-text: #ededed;
+    --color-text-2: #a1a1a1;
+    --color-text-3: #8f8f8f;
+    --color-accent: #ededed;
+    --color-accent-hover: #cccccc;
+    --color-accent-fg: #0a0a0a;
+    --color-accent-soft: #1f1f1f;
+    --color-accent-soft-fg: #ededed;
+    --color-danger: #ff6166;
+    --color-danger-soft: #2a1314;
+    --color-success: #62c073;
+    --color-success-soft: #0f2414;
+    --color-warning: #f2a33a;
+    --color-warning-soft: #2a1d0a;
+    --color-overlay: rgb(0 0 0 / 0.7);
+    --color-focus: #ededed;
+    --grid-line: rgb(255 255 255 / 0.06);
+    --glass: rgb(10 10 10 / 0.75);
+    --glass-border: #242424;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.16);
+    --shadow-md:
+      0 0 0 1px rgb(255 255 255 / 0.1), 0 2px 2px rgb(0 0 0 / 0.32), 0 8px 8px -8px rgb(0 0 0 / 0.16);
+    --shadow-lg:
+      0 0 0 1px rgb(255 255 255 / 0.12), 0 4px 8px -4px rgb(0 0 0 / 0.3), 0 16px 24px -8px rgb(0 0 0 / 0.4);
   }
 }

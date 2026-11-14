@@ -1,8 +1,18 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Folder, MoreHorizontal, Plus } from 'lucide-react';
+import {
+  ArrowUpRight,
+  FileText,
+  Folder,
+  Image as ImageIcon,
+  Mic,
+  MoreHorizontal,
+  Plus,
+  Video,
+} from 'lucide-react';
 import type { Collection } from '@app/shared';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { ConfirmDialog } from '../components/library/ConfirmDialog';
 import { RenameDialog } from '../components/library/RenameDialog';
 
@@ -25,7 +35,17 @@ function formatRelativeTime(dateString?: string): string {
   return 'just now';
 }
 
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 5) return 'Working late';
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
 export function Collections() {
+  const { user } = useAuth();
+  const firstName = user?.name?.split(' ')[0];
   const [collections, setCollections] = useState<Collection[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -136,6 +156,10 @@ export function Collections() {
       {/* Header row */}
       <div className="library-header">
         <div className="library-title-group">
+          <p className="library-greeting">
+            {greeting()}
+            {firstName ? `, ${firstName}` : ''}
+          </p>
           <h1 className="library-title">Library</h1>
           {!loading && (
             <span className="library-count">
@@ -199,15 +223,37 @@ export function Collections() {
       {loading ? (
         <div className="collections-grid" aria-label="Loading collections">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="collection-card-skeleton skeleton" />
+            <div
+              key={i}
+              className="collection-card-skeleton skeleton"
+              style={{ animationDelay: `${i * 90}ms` }}
+            />
           ))}
         </div>
       ) : collections.length === 0 ? (
         /* Empty state */
         <div className="library-empty">
+          <div className="library-empty-art" aria-hidden="true">
+            <span className="empty-tile tile-1">
+              <FileText size={18} strokeWidth={1.75} />
+            </span>
+            <span className="empty-tile tile-2">
+              <ImageIcon size={18} strokeWidth={1.75} />
+            </span>
+            <span className="empty-tile tile-3">
+              <Video size={18} strokeWidth={1.75} />
+            </span>
+            <span className="empty-tile tile-4">
+              <Mic size={18} strokeWidth={1.75} />
+            </span>
+            <span className="empty-folder">
+              <Folder size={30} strokeWidth={1.5} />
+            </span>
+          </div>
           <h2 className="library-empty-headline">Start your library</h2>
           <p className="library-empty-help">
-            Create your first collection to organize and search research papers, transcripts, and media.
+            Create a collection, drop in PDFs, photos, recordings or videos, then ask questions across all of
+            them.
           </p>
           <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
             <Plus size={16} strokeWidth={1.75} />
@@ -217,15 +263,21 @@ export function Collections() {
       ) : (
         /* Grid of collection cards */
         <div className="collections-grid">
-          {collections.map((collection) => {
+          {collections.map((collection, index) => {
             const count = counts[collection.id] ?? collection.fileCount ?? 0;
             const relativeDate = formatRelativeTime(collection.createdAt);
             const isMenuOpen = openMenuId === collection.id;
 
             return (
-              <article key={collection.id} className="collection-card">
+              <article
+                key={collection.id}
+                className={`collection-card ${isMenuOpen ? 'menu-open' : ''}`}
+                style={{ animationDelay: `${Math.min(index, 10) * 45}ms` }}
+              >
                 <div className="collection-card-top">
-                  <Folder className="collection-card-icon" size={18} strokeWidth={1.75} />
+                  <span className="collection-card-icon-wrap">
+                    <Folder className="collection-card-icon" size={18} strokeWidth={1.75} />
+                  </span>
                   <div
                     className="collection-card-menu-wrapper"
                     ref={isMenuOpen ? menuContainerRef : undefined}
@@ -273,6 +325,12 @@ export function Collections() {
                   <h2 className="collection-card-name" title={collection.name}>
                     {collection.name}
                   </h2>
+                  <ArrowUpRight
+                    className="collection-card-arrow"
+                    size={16}
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                  />
                   <span className="collection-card-meta">
                     {count} {count === 1 ? 'file' : 'files'}
                     {relativeDate ? ` · created ${relativeDate}` : ''}

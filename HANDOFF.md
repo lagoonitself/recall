@@ -64,6 +64,12 @@ P7: the provider is not interruptible mid-await, so a disconnect is noticed at t
 
 Newest at the top. One entry per working session. Keep each to a few lines: what was done, what's half-done, what the next agent must know.
 
+### 2026-11-14 · Claude · frontend redesign (monochrome, Vercel/Geist style)
+- User asked for black and white only, like Vercel. Tokens are now Geist grays (light #fff/#171717, dark #0a0a0a/#ededed); serif removed (`--font-serif` maps to Geist); radii 6/8/12.
+- Logo: `components/brand/Logo.tsx` is a solid geometric "R" (stem, half-disc bowl, leg) in currentColor; `public/favicon.svg` inverts in dark mode.
+- `styles/polish.css` (imported last): glass topbar with "/" divider, tabs with a pointer-following hover pill and sliding active underline, grid backgrounds, crosshair-corner sign-in card, quiet entrances, hover states. No colored glows, grain or cursor spotlight (removed `lib/spotlight.ts`).
+- Checked: typecheck, 53/53 client tests, `vite build`, light + dark, 375px with no horizontal scroll. Rebased onto main after D28 (email sign-in): the sign-in card keeps the email form, divider and Google button.
+
 ### 2026-11-14 - Claude - Email + password sign-in (D28)
 - User asked for email/password sign-in next to Google. Restored `POST /api/auth/register` and `/login` (scrypt hashes, same 401 for unknown email and wrong password), `RegisterRequestSchema` / `LoginRequestSchema` in `shared/`, and a sign-in / create-account form above the Google button on `/login` (`client/src/components/EmailSignIn.tsx`). MSW mocks handle both routes. Google linking still clears an existing password.
 - Touches P1 (server auth), P8 (auth page) and `shared/` in one branch (`claude/charming-gates-vt8nt1`) because the user asked for this one change only; split if reviewers want the shared contract in its own PR.
@@ -76,8 +82,9 @@ Newest at the top. One entry per working session. Keep each to a few lines: what
 ### 2026-11-14 - Codex - P4 video upload failure
 - Reproduced the production failure with the user's valid 640x360 H.264/AAC clip: aspect-ratio adjustment produced width 853, which libx264 rejects. Added `force_divisible_by=2` to the existing scale filter; the actual 18.576-second clip now converts successfully with audio retained.
 - Expanded real-FFmpeg regression coverage to 128x96, 640x360, 1280x720 and portrait 360x640, asserting H.264, even dimensions, height <= 480, duration and poster output. Before fix: both landscape regressions failed; after fix: all four passed. Independent agent review approved, including Debian bookworm / FFmpeg 5.1 compatibility.
-- Typecheck, lint and formatting passed. Full test run: 128 tests passed, 15 skipped, but the unrelated P7 integration suite throws during collection when both database environment variables are unset (`TEST_DATABASE_URL must differ from DATABASE_URL`). No production database credentials used for tests.
-- Outside P4 scope: required HANDOFF and DECISIONS updates only. Deployment and signed-in production retry are the remaining verification steps.
+- Typecheck, lint, formatting and production build passed. Full test run: 128 tests passed, 15 skipped, but the unrelated P7 integration suite throws during collection when both database environment variables are unset (`TEST_DATABASE_URL must differ from DATABASE_URL`). No production database credentials used for tests.
+- PR #17 merged as `ff6c21d4c71558ef01750b7a6425927e7eb4f382`. Render deploy `dep-dbs3tom8bjmc73e3g2lg` confirmed live; API health returned 204. Re-uploaded the exact original through the signed-in production UI: completed ingestion, preview enabled, video loaded with readyState 4, duration 18.575964 and no media error. The earlier failed attempt remains; the new successful copy is at the top of the collection.
+- Outside P4 scope: required HANDOFF and DECISIONS updates only. Proof screenshot: `../video-upload-fixed.jpg`. Production verification above was recorded locally after the merged PR.
 
 ### 2026-11-14 ? Codex ? P12 GitHub README
 - Added a detailed README covering product behavior, architecture diagram, ingestion, hybrid retrieval, LLM tools, citations, mock/full local setup, configuration, deployment, limits, security and credits. Gemini Embedding 2 is the only named model; LLM identity is omitted per user request (D26).

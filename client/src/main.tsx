@@ -7,13 +7,14 @@ import { AuthPage } from './pages/Auth';
 import { Collections } from './pages/Collections';
 import { CollectionPage } from './pages/Collection';
 import { ChatPage } from './pages/Chat';
+import { LogoMark } from './components/brand/Logo';
 import './style.css';
 function Protected() {
   const { user, loading } = useAuth();
   if (loading)
     return (
       <main className="app-boot" aria-busy="true" aria-live="polite">
-        <span className="spinner" />
+        <LogoMark size={32} pulse />
         <span className="visually-hidden">Loading your library</span>
       </main>
     );
