@@ -21,6 +21,8 @@ People keep what they know in many formats at once: PDF manuals and reports, sca
 
 So finding one fact means opening files one by one, scrubbing through recordings, and re-reading documents. Answers that cannot be traced to a source are hard to trust, which slows decisions in study, research, maintenance and everyday paperwork.
 
+Document-heavy work has a second problem. Invoices, claims, contracts, IDs and statements are still typed into systems by hand, checked by eye, and almost never compared with the other evidence in the case: the damage photo, the customer's call, the inspection video. Inconsistent extraction and missed contradictions lead to wrong payouts, fraud that slips through, and slow decisions.
+
 ## Solution description
 
 Recall is a multimodal research library with an AI agent on top. You put documents, images, audio and video into collections, ask a question in text or with an attached photo, recording, PDF or video, and get an answer that cites the exact page, image or timestamp it came from.
@@ -30,6 +32,7 @@ Recall is a multimodal research library with an AI agent on top. You put documen
 - **Understanding every upload.** A background worker splits each file into pieces (PDF pages, audio and video segments, images, text passages). **Gemini Embedding 2** turns every piece, whatever its format, into a vector in one shared space, and **Google Gemini** writes a description of each media piece: a summary, a transcript, visible text and tags.
 - **Searching across formats.** Hybrid retrieval combines vector similarity with full-text search, so a text question can find a video clip and a photo can find the matching manual page.
 - **An agent that checks its sources.** A Gemini-powered agent decides which tools to use: search the library, list files, and open sources to look at the actual page image or media clip before it answers. Each step streams to the screen as it happens.
+- **Document intelligence with Gemini Decision 1.** Every PDF, scan and text file is classified, its key fields are extracted, and then each value is confirmed by **Gemini Decision 1** (`gemini-decision-1`), Google's decision model that answers yes/no, choice and score questions with calibrated probabilities instead of text. Code rules check dates, totals and required fields. Decision 1 then compares each claim in the document with the photos, recordings and videos in the same collection, reading the actual media, and flags contradictions with a link to the evidence. Confident, clean documents are auto-approved; the rest go to a human review queue. See [Document intelligence](#document-intelligence).
 - **Answers you can verify.** Answers stream with numbered citations. Each citation opens the source in place: the full PDF at the cited page, the image, or the audio or video at the cited second.
 - **Keys stay on the server.** All AI calls go through the Express backend; API keys live only in backend environment variables.
 
@@ -38,6 +41,8 @@ Recall is a multimodal research library with an AI agent on top. You put documen
 - Collections for PDFs, scans, Word, Markdown and text files, photos, audio and short videos, with live processing status
 - Questions in text, or with an attached photo, audio file, PDF or video
 - Visible agent activity: reasoning, searches and opened sources
+- A Documents view per collection: document type, extracted fields with confidence, rule and AI checks, cross-media contradictions with evidence, risk score and an approve/reject review queue
+- Chat questions across extracted data, such as "which invoices are overdue?" or "which claims conflict with the call recordings?"
 - Citations that open the exact page, image or timestamp
 - Saved conversations, scoped to one collection or the whole library
 - Email and password sign-in (bcrypt-hashed, JWT sessions) or Google sign-in
@@ -145,6 +150,27 @@ The ingestion queue lives in Postgres, so queued work survives an API restart wi
 
 The API and worker share one process by default. One worker processes uploads at a time, originals are streamed to temporary disk, and media utilities run as child processes to fit a small container. File status is `uploading`, `queued`, `processing`, `ready`, or `failed`; failed files retain an error message.
 
+## Document intelligence
+
+When a PDF, image or text file finishes processing, an in-process queue analyses it in four steps. Each step uses the model that suits it best.
+
+| Step | Model | What happens |
+| --- | --- | --- |
+| 1. Classify and inspect | **Gemini Decision 1** | One request answers every closed question at once: is this image a document at all, which of 10 types it is (invoice, receipt, quote, contract, ID, bank statement, insurance claim, medical report, resume, other), how legible it is (score), and yes/no checks such as tampering, missing pages, signature, seller tax id or auto-renewal. Every answer comes with a calibrated probability. |
+| 2. Extract | Gemini (`EXTRACT_MODEL`) | The type's fields are extracted with a JSON schema: dates as `YYYY-MM-DD`, amounts as plain numbers, with page numbers. |
+| 3. Validate | **Gemini Decision 1** + code | Decision 1 re-reads the original document and confirms each extracted value ("Does this invoice state that the total is 48,500?"). Code rules check required fields, date order, dates in the future, expired IDs, overdue invoices and whether subtotal + tax = total. |
+| 4. Cross-check | Hybrid search + **Gemini Decision 1** | The claims a document makes (amounts, dates, names, damage, items) are used to search the rest of the collection. For each matching photo, audio clip, video clip or page, Decision 1 reads the actual media and answers whether it is about the same thing, confirms the claim, or contradicts it. Contradictions link to the exact file and timestamp. |
+
+The results are combined in code: a document with an uncertain type, low legibility, a failed check or a contradiction goes to **Needs review**, with the reasons listed. Everything else is **Auto-approved**. A reviewer can approve or reject. When new photos, recordings or videos are added to a collection, the cross-media checks of its documents are refreshed; a human decision stands unless a new contradiction appears.
+
+Example, using the files in [`demo/claim-review`](demo/claim-review) (a real run against Gemini):
+
+- `claim-form.pdf` says the car was hit from behind on 3 November, claiming INR 45,000. The caller in `claimant-call.mp3` says the front was hit on 10 November and the repair costs about 52,000. Decision 1 flags the date (p = 0.99), the damage (p = 0.99) and the amount (p = 0.97) as contradicted, and confirms the claimant's name (p = 0.93).
+- `garage-invoice.pdf`: subtotal 38,000 + GST 6,840 does not equal the total of 48,500 (rule), and the invoiced work contradicts the garage's own `repair-estimate.txt` (p = 0.99).
+- `repair-estimate.txt` is classified as a quote (p = 0.94), agrees with the call, and is auto-approved.
+
+Decision 1 returns no text, so it bills input tokens only and answers in a few hundred milliseconds. Analysing one document takes about 5–10 seconds in total. Run `npx tsx server/scripts/doc-live-check.ts` from `server/` (needs `GEMINI_API_KEY` and `TEST_DATABASE_URL`) to repeat the run above.
+
 ## From question to cited answer
 
 Recall uses retrieval-augmented generation: the agent searches your library and uses the retrieved evidence as context for its answer. It can repeat a search or inspect additional sources within a bounded tool loop.
@@ -165,6 +191,7 @@ The LLM requests tools through the server; ownership checks and argument validat
 | `search_library` | Search by text or a current-message attachment, optionally filtering by collection or content type |
 | `open_sources` | Open up to four retrieved sources, using original piece content or capability-based fallbacks |
 | `list_files` | List library files, optionally filtering by collection, type, or filename |
+| `list_documents` | List analysed documents with type, extracted fields, failed checks and review status, each with a citable source id |
 
 ### Hybrid retrieval
 
@@ -272,6 +299,10 @@ The following are application defaults, not service quota guarantees. Adjust quo
 | `WORKER_CONCURRENCY` | `1` | Ingestion jobs processed concurrently |
 | `EMBED_RPM`, `EMBED_CONCURRENCY` | `60`, `2` | Embedding request throttles |
 | `LLM_CONCURRENCY`, `DESCRIBE_BATCH` | `2`, `4` | LLM concurrency and description processing batch size |
+| `DOC_AI_PROVIDER` | `gemini` | Document intelligence models: `gemini`, or `fake` for tests |
+| `DECISION_MODEL` | `gemini-decision-1` | Gemini Decisions API model for classification, checks and cross-media validation |
+| `EXTRACT_MODEL` | `gemini-3.5-flash-lite` | Gemini model for field extraction |
+| `DOC_AI_CONCURRENCY` | `2` | Concurrent document-intelligence requests |
 
 Audio has no separate duration cap, but file size and account quotas still apply. The embedding client also limits each inline media piece to 15 MB; a file accepted for upload may fail ingestion if its normalized piece remains too large.
 

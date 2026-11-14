@@ -55,7 +55,10 @@ export type Worker = { stop: () => Promise<void> };
  * Starts `concurrency` polling loops. stop() lets each loop finish its current piece, puts an interrupted
  * job back in the queue without spending an attempt, and resolves when all loops have exited.
  */
-export function startWorker(deps: IngestDeps, options: { concurrency: number; pollMs?: number }): Worker {
+export function startWorker(
+  deps: IngestDeps,
+  options: { concurrency: number; pollMs?: number; onFileReady?: (fileId: string) => Promise<void> },
+): Worker {
   let stopping = false;
   const sleepers = new Set<() => void>();
   const sleep = (ms: number) =>
@@ -86,6 +89,10 @@ export function startWorker(deps: IngestDeps, options: { concurrency: number; po
         `UPDATE jobs SET status = 'done', locked_at = NULL, last_error = NULL WHERE id = $1`,
         [job.id],
       );
+      if (outcome === 'done')
+        await options
+          .onFileReady?.(job.file_id)
+          .catch((error) => console.error('post-ingest hook failed', String(error)));
     } catch (error) {
       console.error(`ingest job ${job.id} failed (attempt ${job.attempts})`, String(error));
       await recordFailure(deps.pool, job, error).catch((e) => console.error('could not record failure', e));

@@ -20,6 +20,11 @@ import {
   ConversationDetailResponseSchema,
   CreateConversationRequestSchema,
   MediaResponseSchema,
+  DocInsightsResponseSchema,
+  DocInsightResponseSchema,
+  AnalyzeCollectionRequestSchema,
+  ReviewRequestSchema,
+  type ReviewRequest,
 } from '@app/shared';
 const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 let token = localStorage.getItem('recall.token');
@@ -113,6 +118,22 @@ export const api = {
   /** Signed URL + file id of the whole original file a chunk belongs to. Use to open a citation inside the full document. */
   chunkDocument: (chunkId: string) =>
     request(`/chunks/${chunkId}/document`, MediaResponseSchema.extend({ fileId: z.string() })),
+  /** Document intelligence (D30): classification, extracted fields, checks and review status per file. */
+  documents: (collectionId: string) =>
+    request(`/documents?collectionId=${encodeURIComponent(collectionId)}`, DocInsightsResponseSchema),
+  document: (fileId: string) => request(`/documents/${fileId}`, DocInsightResponseSchema),
+  analyzeDocument: (fileId: string) =>
+    request(`/documents/${fileId}/analyze`, DocInsightResponseSchema, { method: 'POST' }),
+  analyzeCollection: (collectionId: string) =>
+    request('/documents/analyze-collection', z.object({ queued: z.number() }), {
+      method: 'POST',
+      body: body(AnalyzeCollectionRequestSchema.parse({ collectionId })),
+    }),
+  reviewDocument: (fileId: string, status: ReviewRequest['status']) =>
+    request(`/documents/${fileId}/review`, DocInsightResponseSchema, {
+      method: 'PATCH',
+      body: body(ReviewRequestSchema.parse({ status })),
+    }),
 };
 async function remove(path: string) {
   const headers = new Headers();

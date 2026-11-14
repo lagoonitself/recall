@@ -65,3 +65,11 @@ services:
         sync: false
       - key: CHAT_PER_MIN
         sync: false
+      - key: DOC_AI_PROVIDER
+        sync: false
+      - key: DECISION_MODEL
+        sync: false
+      - key: EXTRACT_MODEL
+        sync: false
+      - key: DOC_AI_CONCURRENCY
+        sync: false

@@ -2,7 +2,7 @@
 
 **Read this first. Update it last.** Shared memory for every agent working here: where things stand right now. Decisions live in [docs/DECISIONS.md](docs/DECISIONS.md), the design in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), deployment in [docs/DEPLOY.md](docs/DEPLOY.md).
 
-Last updated: 2026-11-14 by Claude (bcrypt, README problem statement, docs cleanup, new screenshots)
+Last updated: 2026-11-14 by Claude (document intelligence with Gemini Decision 1, branch `part/document-intelligence`)
 
 ---
 
@@ -14,8 +14,11 @@ The whole app is built, merged into `main` and deployed: React client on Vercel 
 - Sign-in: email + password (bcrypt, D29) or Google; JWT sessions.
 - UI: black-and-white Vercel/Geist-style design with a geometric "R" logo (`client/src/components/brand/`, `client/src/styles/polish.css`).
 - README has the hackathon problem statement and solution description, and screenshots of the current UI (`docs/images/`, taken in mock mode).
+- **New (D30), on branch `part/document-intelligence`, not merged or deployed yet:** document intelligence. PDFs, images and text files are classified, extracted, verified and cross-checked against the collection's photos, audio and video with **Gemini Decision 1** (`gemini-decision-1`) plus Gemini extraction; Documents tab per collection with a review queue; `list_documents` agent tool. Sample files for the demo are in `demo/claim-review/`.
 
 ## Waiting on the user
+
+- [ ] Merge `part/document-intelligence`, then deploy. Render applies migration 004 on start; Decision 1 uses the existing `GEMINI_API_KEY`.
 
 - [ ] Record the 3–5 minute demo video and link it in the README.
 - [ ] Complete a real Google sign-in during production browser QA.
@@ -23,12 +26,15 @@ The whole app is built, merged into `main` and deployed: React client on Vercel 
 
 ## Next steps
 
+0. Merge D30, deploy, then upload `demo/claim-review/*` to a collection in production and check the Documents tab end to end (real ingest, real search; locally only the analysis step was run live, with search stubbed).
 1. Production QA while signed in: uploads of every format, chat, full-document previews, mobile and dark mode.
 2. Verify the keep-alive cron, cold-start behavior, and memory use on maximum-length videos.
 3. Prepare demo-safe media and a demo script, then record the video.
 
 ## Known problems
 
+- `test/p1.integration.test.ts` still expects `scrypt$` hashes and fails 2 tests since D29 switched to bcrypt; update the assertion.
+- Document analysis runs inside the API process; a deploy mid-analysis leaves the row `running` until `resume()` on the next start re-queues it.
 - Audio attachments need ffmpeg; HNSW iterative scans need pgvector 0.8+. HNSW use was confirmed with planner overrides, not production-size benchmarks.
 - Signed upload URLs stay usable until they expire, so a client could overwrite an original after completion (accepted risk, D23). Deleting a collection removes its R2 objects best-effort after the DB commit.
 - Maximum fully processed duration/pages for embeddings were not proven; Gemini does not embed the audio track of video, so the worker ingests it separately.
@@ -42,6 +48,11 @@ The whole app is built, merged into `main` and deployed: React client on Vercel 
 ## Session log
 
 Newest at the top. A few lines each: what was done, what is half-done, what the next agent must know.
+
+### 2026-11-14 · Claude · document intelligence (D30)
+- Gemini Decision 1 verified live with the project key (457 ms, invoice 0.998). `server/src/agent/provider/documents.ts`, `server/src/documents/*`, `server/src/routes/documents.ts`, migration 004, Documents tab (`client/src/components/documents/`), mocks, `list_documents` tool.
+- Tests: `src/documents/rules.test.ts` (10) and `test/documents.integration.test.ts` (5, Neon test branch, fake AI) pass. `server/scripts/doc-live-check.ts` runs the real models on `demo/claim-review` (results in README).
+- Browser-checked in mock mode: list, drawer, approve, evidence opens the preview (drawer hides and returns), light/dark, 375 px.
 
 ### 2026-11-14 · Claude · bcrypt, README, docs cleanup, screenshots
 - Passwords now use bcrypt (`bcryptjs`, cost 12); new passwords capped at 72 bytes in `RegisterRequestSchema`; legacy `scrypt$` hashes still verify and are re-hashed to bcrypt on the next sign-in (D29). Server auth tests cover all three.

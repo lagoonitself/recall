@@ -15,6 +15,7 @@ import {
   type Modality,
 } from '@app/shared';
 import chatDemoSse from './fixtures/chat-demo.sse?raw';
+import { mockDocument, mockDocuments, mockReanalyze, mockReview } from './documents';
 
 const user: User = {
   id: '00000000-0000-4000-8000-000000000001',
@@ -253,6 +254,29 @@ export const handlers = [
   http.delete('*/api/files/:id', ({ params }) => {
     files = files.filter((item) => item.id !== params.id);
     return new HttpResponse(null, { status: 204 });
+  }),
+
+  // Document intelligence
+  http.get('*/api/documents', ({ request }) => {
+    const id = new URL(request.url).searchParams.get('collectionId') ?? '';
+    return HttpResponse.json(mockDocuments(files, id));
+  }),
+  http.post('*/api/documents/analyze-collection', () => HttpResponse.json({ queued: 0 }, { status: 202 })),
+  http.get('*/api/documents/:id', ({ params }) => {
+    const document = mockDocument(params.id as string);
+    return document ? HttpResponse.json({ document }) : fail();
+  }),
+  http.post('*/api/documents/:id/analyze', ({ params }) => {
+    const file = files.find((f) => f.id === params.id);
+    if (!file) return fail();
+    mockReanalyze(file.id);
+    const document = mockDocuments(files, file.collectionId).documents.find((d) => d.fileId === file.id);
+    return HttpResponse.json({ document }, { status: 202 });
+  }),
+  http.patch('*/api/documents/:id/review', async ({ params, request }) => {
+    const body = (await request.json()) as { status: 'approved' | 'rejected' | 'needs_review' };
+    const document = mockReview(params.id as string, body.status);
+    return document ? HttpResponse.json({ document }) : fail();
   }),
 
   // Conversations API

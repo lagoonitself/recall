@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   ChevronRight,
   MessageSquare,
@@ -11,12 +11,15 @@ import {
   AudioLines,
   Video as VideoIcon,
   File as FileIcon,
+  ScanText,
+  Files as FilesIcon,
 } from 'lucide-react';
 import type { File as LibraryFile, Modality } from '@app/shared';
 import { api } from '../lib/api';
 import { UploadDropzone } from '../components/UploadDropzone';
 import { FilePreview } from '../components/FilePreview';
 import { ConfirmDialog } from '../components/library/ConfirmDialog';
+import { DocumentsView } from '../components/documents/DocumentsView';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -95,6 +98,24 @@ export function CollectionPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [previewFile, setPreviewFile] = useState<LibraryFile | null>(null);
+  const [previewPage, setPreviewPage] = useState<number | undefined>(undefined);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = searchParams.get('view') === 'documents' ? 'documents' : 'files';
+  const [needsReview, setNeedsReview] = useState(0);
+  const setView = (next: 'files' | 'documents') =>
+    setSearchParams(next === 'documents' ? { view: 'documents' } : {}, { replace: true });
+  const previewClosed = useRef<(() => void) | undefined>(undefined);
+  const openFile = useCallback(
+    (fileId: string, page?: number, onClosed?: () => void) => {
+      const target = files.find((f) => f.id === fileId);
+      if (!target) return false;
+      previewClosed.current = onClosed;
+      setPreviewPage(page);
+      setPreviewFile(target);
+      return true;
+    },
+    [files],
+  );
   const [deletingFile, setDeletingFile] = useState<LibraryFile | null>(null);
   const [filterText, setFilterText] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -123,6 +144,21 @@ export function CollectionPage() {
       )
       .catch(() => {});
   }, [id, load]);
+
+  // Keep the "needs review" count on the Documents tab current, and tell the tab when uploads finish.
+  const fileStates = files.map((f) => `${f.id}:${f.status}`).join(',');
+  useEffect(() => {
+    let active = true;
+    api
+      .documents(id)
+      .then((res) => {
+        if (active) setNeedsReview(res.documents.filter((d) => d.reviewStatus === 'needs_review').length);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [id, fileStates]);
 
   // Poll while files are processing
   useEffect(() => {
@@ -203,7 +239,44 @@ export function CollectionPage() {
         }}
       />
 
-      {error && (
+      <div className="collection-tabs" role="tablist" aria-label="Collection views">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === 'files'}
+          className="collection-tab"
+          onClick={() => setView('files')}
+        >
+          <FilesIcon size={15} strokeWidth={1.75} aria-hidden="true" />
+          Files
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === 'documents'}
+          className="collection-tab"
+          onClick={() => setView('documents')}
+        >
+          <ScanText size={15} strokeWidth={1.75} aria-hidden="true" />
+          Documents
+          {needsReview > 0 && (
+            <span className="collection-tab-count" aria-label={`${needsReview} need review`}>
+              {needsReview}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {view === 'documents' && (
+        <DocumentsView
+          collectionId={id}
+          refreshKey={fileStates}
+          onOpenFile={openFile}
+          onSummary={setNeedsReview}
+        />
+      )}
+
+      {view === 'files' && error && (
         <div
           role="alert"
           className="badge badge-danger"
@@ -214,7 +287,7 @@ export function CollectionPage() {
       )}
 
       {/* Filter bar when file count > 5 */}
-      {files.length > 5 && (
+      {view === 'files' && files.length > 5 && (
         <div className="files-filter-bar">
           <input
             type="search"
@@ -227,7 +300,7 @@ export function CollectionPage() {
       )}
 
       {/* File List / Loading Skeletons */}
-      {loading ? (
+      {view !== 'files' ? null : loading ? (
         <div className="file-list" aria-label="Loading files">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="file-row" style={{ height: 60 }}>
@@ -358,7 +431,19 @@ export function CollectionPage() {
       />
 
       {/* File Preview Modal */}
-      {previewFile && <FilePreview file={previewFile} onClose={() => setPreviewFile(null)} />}
+      {previewFile && (
+        <FilePreview
+          key={`${previewFile.id}-${previewPage ?? 0}`}
+          file={previewFile}
+          initialPage={previewPage}
+          onClose={() => {
+            setPreviewFile(null);
+            setPreviewPage(undefined);
+            previewClosed.current?.();
+            previewClosed.current = undefined;
+          }}
+        />
+      )}
     </main>
   );
 }

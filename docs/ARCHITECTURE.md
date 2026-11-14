@@ -160,6 +160,26 @@ Rules that save LLM calls and handle weaker models:
 
 ---
 
+### 4.5 Document intelligence (D30)
+
+After a file is `ready`, `onFileReady` hands it to `DocumentQueue` (`server/src/documents/queue.ts`, in-process, one task at a time). PDF, image and text files get a full analysis (`analyze.ts`); every other document in the collection gets a cross-media refresh.
+
+```
+original file ──► Decision 1: is_document? type (choice) · legibility (score) · yes/no checks for every type
+              ──► Gemini extraction (JSON schema for the chosen type's fields)
+              ──► Decision 1: "does the document state <field> = <value>?" per field   +  rules.ts (dates, totals, required)
+              ──► hybrid search with the document's claims ──► per evidence piece (page / image / audio / video):
+                  Decision 1: relevant? contradicts <claim>? confirms <claim>?
+              ──► route(): needs_review | auto_approved, risk score, reasons ──► doc_insights row
+```
+
+- Models: `server/src/agent/provider/documents.ts` (`GeminiDocumentAI`: `ai.decisions.create` on v1beta + `models.generateContent`; `FakeDocumentAI` for tests). `DOC_AI_PROVIDER`, `DECISION_MODEL`, `EXTRACT_MODEL`, `DOC_AI_CONCURRENCY`.
+- Document types, fields, which fields are cross-checked, and per-type checks: `server/src/documents/catalog.ts`.
+- Table `doc_insights` (migration 004): one row per file; `fields` and `checks` are JSONB arrays shaped like `ExtractedField` / `DocCheck` in `shared/`.
+- API: `GET /api/documents?collectionId=`, `GET /api/documents/:fileId`, `POST /api/documents/:fileId/analyze`, `POST /api/documents/analyze-collection`, `PATCH /api/documents/:fileId/review`.
+- Agent: `list_documents` tool returns fields and problems with citable `S#` ids (first chunk of the file).
+- Thresholds: contradiction fail at p >= 0.6 (warn 0.45–0.6) when relevance >= 0.5; support at p >= 0.7; field confirmation fail < 0.5, warn < 0.75.
+
 ## 5. The agent
 
 ### 5.1 Loop

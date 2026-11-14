@@ -18,6 +18,20 @@ import { createR2, type R2 } from './lib/r2.js';
 import { embedMedia, embedText } from './lib/embed.js';
 import { getDescribeProvider, getProvider } from './agent/provider/index.js';
 import { startWorker } from './ingest/worker.js';
+import { documentsRouter } from './routes/documents.js';
+import { DocumentQueue } from './documents/queue.js';
+import { getDocumentAI } from './agent/provider/documents.js';
+
+let documentQueue: DocumentQueue | undefined;
+/** One queue per process, shared by the API routes and the ingest worker. */
+export function getDocumentQueue() {
+  return (documentQueue ??= new DocumentQueue({
+    pool: getPool(),
+    storage: createR2(),
+    ai: getDocumentAI(),
+    search: searchLibrary,
+  }));
+}
 
 export type AppOptions = {
   corsOrigin?: string;
@@ -28,6 +42,7 @@ export type AppOptions = {
   storage?: R2;
   fileLimits?: FileLimits;
   chat?: Partial<ChatDeps>;
+  documents?: () => DocumentQueue;
 };
 
 /** Builds the Express app. Never connects to the DB here, so tests can build it without env. */
@@ -66,6 +81,7 @@ export function createApp(options: AppOptions = {}) {
       ...options.chat,
     }),
   );
+  app.use('/api/documents', documentsRouter(pool, secret, options.documents ?? getDocumentQueue));
   app.use('/api', notFoundHandler);
   app.use(errorHandler);
   return app;
@@ -98,10 +114,18 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
           audioPieceSec: config.AUDIO_PIECE_SEC,
           describeBatch: config.DESCRIBE_BATCH,
         },
-        { concurrency: config.WORKER_CONCURRENCY },
+        {
+          concurrency: config.WORKER_CONCURRENCY,
+          onFileReady: (fileId) => getDocumentQueue().fileReady(fileId),
+        },
       )
     : undefined;
-  if (worker) console.log(`Ingestion worker started (concurrency ${config.WORKER_CONCURRENCY})`);
+  if (worker) {
+    console.log(`Ingestion worker started (concurrency ${config.WORKER_CONCURRENCY})`);
+    void getDocumentQueue()
+      .resume()
+      .catch((error) => console.error('could not resume document analysis', String(error)));
+  }
   // Render sends SIGTERM on deploy: finish the current piece, requeue the job, then exit.
   for (const signal of ['SIGTERM', 'SIGINT'] as const)
     process.once(signal, () => {
