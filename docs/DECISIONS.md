@@ -25,6 +25,8 @@ Append-only. Newest at the bottom. Each entry: date, decision, why, who decided.
 | D18 | 2026-11-14 | Use camelCase REST objects and `{event, data}` SSE envelopes; define initial REST response shapes from the data model where ?8 omits them. Use built `@app/shared` exports with a TypeScript watch in dev. | Gives both workspaces an executable shared contract; downstream implementation should review unspecified details before relying on them. | GPT-6.1 Terra (Codex) |
 | D19 | 2026-11-14 | Add Google sign-in next to email/password. Browser uses Google Identity Services to get an ID token; `POST /api/auth/google` verifies it with `google-auth-library` (`aud` = `GOOGLE_CLIENT_ID`, `email_verified`) and issues our own JWT. `users.password_hash` becomes nullable; new `google_sub`, `avatar_url`. Accounts link by verified email. Built in P1 (server) and P8 (button). | User asked for Google login. ID-token flow needs no client secret and no redirect handling, and keeps one JWT session model. | User / Claude |
 
+| D20 | 2026-11-14 | P3 spike: 1536 dimensions and norm 1.000000 for text, PNG, JPEG, WebP, MP3 audio, MP4 video and PDF; prefixed query matching red image cosine 0.729604 vs blue image 0.652363. API returned success for 181 s MP3, 81 s MP4 with audio, and 6- and 7-page PDFs; acceptance does not prove full content was embedded. Google documents 180 s audio, 120 s video, 6 PDF pages, PNG/JPEG, and says video audio tracks are not processed; WebP acceptance is not a supported-format guarantee. Keep audio pieces at 150 s and product video cap at 80 s. Gemini 2 auto-normalizes 1536-d vectors; text retrieval uses task prefixes, not taskType. | Avoid treating silent truncation or undocumented acceptance as a measured maximum. P4 must separately process video audio. Source: https://ai.google.dev/gemini-api/docs/embeddings (accessed 2026-11-14). | GPT-6.1 Terra |
+
 ## Pending
 
 | Question | Blocks | Answered by |
@@ -32,4 +34,4 @@ Append-only. Newest at the bottom. Each entry: date, decision, why, who decided.
 | Which LLM for the agent? Does it accept image / PDF / audio / video, tools and reasoning output? | P5 real adapter | User |
 | Is a separate describe model needed (if the agent model can't take audio/video)? | P4 real describe | User, after the above |
 | Gemini key limits for `gemini-embedding-2` (RPM / RPD in AI Studio) | `EMBED_RPM`, demo library size | User |
-| Real per-call limits of `gemini-embedding-2` (audio seconds, image formats) | `AUDIO_PIECE_SEC` | P3 |
+| P3 observed API acceptance beyond documented limits, but did not verify truncation or maximum fully processed duration/pages; investigate with semantic boundary probes. Video audio is not processed per Google docs and needs separate ingestion. | P4 splitting and video audio | P4 / integration |
