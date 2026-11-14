@@ -32,6 +32,8 @@ Append-only. Newest at the bottom. Each entry: date, decision, why, who decided.
 
 | D26 | 2026-11-14 | Public README names Gemini Embedding 2 for embeddings and describes agent and description inference as an LLM, without naming an LLM model or provider. | User requested this wording for the GitHub README; implementation and operator configuration are unchanged. | User / Codex |
 
+| D27 | 2026-11-14 | Enforce `force_divisible_by=2` after aspect-ratio scaling for ingested videos. | The existing scale filter can output odd widths (853 for a 640x360 clip), causing libx264 to reject otherwise valid uploads. Preserve the existing 480p conversion and duration cap. | Codex |
+
 ## Pending
 
 | Question | Blocks | Answered by |
