@@ -5,6 +5,7 @@ import request from 'supertest';
 import { createPool } from '../src/db/index.js';
 import { migrate } from '../src/db/migrate.js';
 import { createApp } from '../src/index.js';
+import { signToken } from '../src/lib/auth.js';
 
 const testUrl = process.env.TEST_DATABASE_URL;
 const suite = testUrl ? describe : describe.skip;
@@ -63,35 +64,23 @@ suite('P1 integration on TEST_DATABASE_URL', () => {
       .extversion as string;
     expect(Number(version.split('.')[0]) > 0 || Number(version.split('.')[1]) >= 7).toBe(true);
   }, 30000);
-  it('registers, rejects duplicates, logs in, and reads me', async () => {
-    const registered = await request(app)
-      .post('/api/auth/register')
-      .send({ email: '  ' + email.toUpperCase() + '  ', password: 'password123', name: 'Test' });
-    expect(registered.status).toBe(201);
-    expect(registered.body.user).toMatchObject({ email, avatarUrl: null });
-    token = registered.body.token;
-    userId = registered.body.user.id;
-    expect(
-      (await request(app).post('/api/auth/register').send({ email, password: 'password123' })).status,
-    ).toBe(409);
-    expect(
-      (await request(app).post('/api/auth/login').send({ email, password: 'bad' })).body.error.message,
-    ).toBe('Invalid email or password');
-    expect((await request(app).post('/api/auth/login').send({ email, password: 'password123' })).status).toBe(
-      200,
+  it('seeds users, reads me, and has no password routes', async () => {
+    // Sign-in is Google only (D22): test users are inserted directly and get tokens from signToken.
+    const first = await pool.query(
+      "INSERT INTO users(email, password_hash) VALUES ($1, 'legacy-hash') RETURNING id",
+      [email],
     );
-    expect(
-      (
-        await request(app)
-          .get('/api/auth/me')
-          .set('Authorization', 'Bearer ' + token)
-      ).body.user.id,
-    ).toBe(userId);
+    userId = first.rows[0].id;
+    token = signToken(userId, secret);
+    const second = await pool.query('INSERT INTO users(email) VALUES ($1) RETURNING id', [secondEmail]);
+    secondToken = signToken(second.rows[0].id, secret);
+    const me = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', 'Bearer ' + token);
+    expect(me.body.user).toMatchObject({ id: userId, email, avatarUrl: null });
     expect((await request(app).get('/api/auth/me')).status).toBe(401);
-    const second = await request(app)
-      .post('/api/auth/register')
-      .send({ email: secondEmail, password: 'password123' });
-    secondToken = second.body.token;
+    for (const path of ['/api/auth/register', '/api/auth/login'])
+      expect((await request(app).post(path).send({ email, password: 'password123' })).status).toBe(404);
   }, 30000);
   it('creates, lists, updates, deletes and isolates collections', async () => {
     const auth = 'Bearer ' + token;
@@ -141,17 +130,17 @@ suite('P1 integration on TEST_DATABASE_URL', () => {
     expect((await request(app).post('/api/auth/google').send({ credential: 'invalid' })).status).toBe(401);
     const linked = await request(app).post('/api/auth/google').send({ credential: 'link' });
     expect(linked.body.user.id).toBe(userId);
-    // Pre-account-takeover guard: the password set before Google proved the address no longer works.
-    const oldPassword = await request(app).post('/api/auth/login').send({ email, password: 'password123' });
-    expect(oldPassword.status).toBe(401);
-    expect(oldPassword.body.error.message).toBe('Invalid email or password');
+    // A legacy password (from before D22) is dropped when Google proves the address.
+    expect(
+      (await pool.query('SELECT password_hash FROM users WHERE id = $1', [userId])).rows[0].password_hash,
+    ).toBeNull();
     const bySub = await request(app).post('/api/auth/google').send({ credential: 'other' });
     expect(bySub.body.user.id).toBe(userId);
     const disabled = createApp({ pool, jwtSecret: secret });
     expect((await request(disabled).get('/api/auth/config')).body.googleClientId).toBeNull();
     expect((await request(disabled).post('/api/auth/google').send({ credential: 'x' })).status).toBe(404);
   });
-  it('creates Google-only users and denies password login', async () => {
+  it('creates new users from Google', async () => {
     const isolated = createApp({
       pool,
       jwtSecret: secret,
@@ -172,10 +161,5 @@ suite('P1 integration on TEST_DATABASE_URL', () => {
       email: googleEmail,
       avatarUrl: 'https://example.com/avatar.png',
     });
-    const login = await request(isolated)
-      .post('/api/auth/login')
-      .send({ email: googleEmail, password: 'password123' });
-    expect(login.status).toBe(401);
-    expect(login.body.error.message).toBe('Invalid email or password');
   });
 });
