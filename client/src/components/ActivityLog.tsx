@@ -6,6 +6,9 @@ export interface ActivityStepData {
   seq: number;
   kind: StepKind;
   ms?: number;
+  /** Wall-clock times (ms since epoch) so the header can show real elapsed time, model thinking included. */
+  startedAtMs?: number;
+  endedAtMs?: number;
   reasoningText?: string;
   toolName?: string;
   toolArgs?: Record<string, unknown>;
@@ -30,6 +33,8 @@ function normalizeStep(step: AgentStep | ActivityStepData): ActivityStepData {
       seq: step.seq,
       kind: step.kind,
       ms,
+      startedAtMs: new Date(step.startedAt).getTime(),
+      endedAtMs: step.endedAt ? new Date(step.endedAt).getTime() : undefined,
       reasoningText: (payload.text as string) || undefined,
       toolName: (payload.name as string) || undefined,
       toolArgs: (payload.args as Record<string, unknown>) || undefined,
@@ -83,7 +88,12 @@ export function deriveActivitySummary(steps: ActivityStepData[]): string {
     }
   }
 
-  const durationStr = totalMs > 0 ? `${(totalMs / 1000).toFixed(1)} s` : '0.5 s';
+  const starts = steps.flatMap((s) => (s.startedAtMs !== undefined ? [s.startedAtMs] : []));
+  const ends = steps.flatMap((s) => (s.endedAtMs !== undefined ? [s.endedAtMs] : []));
+  if (starts.length && ends.length) {
+    totalMs = Math.max(0, Math.max(...ends) - Math.min(...starts));
+  }
+  const durationStr = `${(totalMs / 1000).toFixed(1)} s`;
   const parts: string[] = [];
 
   if (searchCount > 0) {
