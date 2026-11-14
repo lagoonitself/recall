@@ -1,0 +1,116 @@
+/*
+ * Recall design tokens. The ONLY place raw colors, radii, shadows, font stacks
+ * and durations are defined. Every other stylesheet uses var(--…) from here.
+ * Owner: integration (Claude). Feature agents must not edit this file.
+ */
+:root {
+  /* Type */
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-serif: 'Newsreader Variable', Georgia, 'Times New Roman', serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  --text-xs: 0.75rem;   /* 12 meta, timestamps */
+  --text-sm: 0.8125rem; /* 13 secondary UI */
+  --text-base: 0.875rem;/* 14 default UI */
+  --text-md: 0.9375rem; /* 15 reading text (answers) */
+  --text-lg: 1.125rem;  /* 18 section titles */
+  --text-xl: 1.5rem;    /* 24 page titles in app chrome */
+  --text-2xl: 2.25rem;  /* 36 display (auth, empty states) */
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-reading: 1.65;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* Space (4px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+
+  /* Layout */
+  --topbar-height: 56px;
+  --content-max: 1080px;
+  --reading-max: 760px;
+  --sidebar-width: 272px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+
+  /* Color — light (warm neutral paper, ink, one deep-green accent) */
+  color-scheme: light;
+  --color-bg: #f7f6f3;
+  --color-surface: #ffffff;
+  --color-surface-2: #f2f1ed;     /* wells, code, hover rows */
+  --color-surface-3: #e9e7e1;     /* pressed, selected */
+  --color-border: #e4e2dc;
+  --color-border-strong: #d1cec6;
+  --color-text: #1b1b19;
+  --color-text-2: #5d5c57;
+  --color-text-3: #8c8a84;
+  --color-accent: #1f3a2e;        /* primary buttons, active nav, focus */
+  --color-accent-hover: #2a4c3c;
+  --color-accent-fg: #ffffff;
+  --color-accent-soft: #e5ece7;   /* citation chips, selected items */
+  --color-accent-soft-fg: #1f3a2e;
+  --color-danger: #b42318;
+  --color-danger-soft: #fbeae8;
+  --color-success: #2f6b4a;
+  --color-success-soft: #e6f1ea;
+  --color-warning: #8a5a00;
+  --color-warning-soft: #f8efd9;
+  --color-overlay: rgb(20 20 18 / 0.48);
+  --color-focus: #1f3a2e;
+
+  --shadow-sm: 0 1px 2px rgb(20 20 18 / 0.06);
+  --shadow-md: 0 4px 16px -4px rgb(20 20 18 / 0.12), 0 1px 3px rgb(20 20 18 / 0.06);
+  --shadow-lg: 0 24px 64px -16px rgb(20 20 18 / 0.28), 0 2px 8px rgb(20 20 18 / 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-bg: #121211;
+    --color-surface: #1a1a19;
+    --color-surface-2: #222220;
+    --color-surface-3: #2c2c29;
+    --color-border: #2e2e2b;
+    --color-border-strong: #3d3d39;
+    --color-text: #ecebe7;
+    --color-text-2: #a9a8a2;
+    --color-text-3: #75746f;
+    --color-accent: #cfe3d6;
+    --color-accent-hover: #e1eee5;
+    --color-accent-fg: #102219;
+    --color-accent-soft: #21342a;
+    --color-accent-soft-fg: #cfe3d6;
+    --color-danger: #f0897d;
+    --color-danger-soft: #3a1d1a;
+    --color-success: #8fcaa6;
+    --color-success-soft: #1c2f24;
+    --color-warning: #e2b862;
+    --color-warning-soft: #33290f;
+    --color-overlay: rgb(0 0 0 / 0.62);
+    --color-focus: #cfe3d6;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 4px 16px -4px rgb(0 0 0 / 0.5);
+    --shadow-lg: 0 24px 64px -16px rgb(0 0 0 / 0.7);
+  }
+}

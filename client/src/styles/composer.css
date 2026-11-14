@@ -1,0 +1,191 @@
+/* Composer */
+.chat-composer-section {
+  padding: 16px 20px 24px;
+  background: #f8f8f3;
+  border-top: 1px solid #e2e7dd;
+  flex-shrink: 0;
+}
+.composer-container {
+  max-width: 820px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.composer-error {
+  background: #fcf1ef;
+  border: 1px solid #f6d1cc;
+  color: #a23828;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.composer-dismiss-btn {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.attachment-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eef3e9;
+  border: 1px solid #d4dfce;
+  border-radius: 16px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  color: #2c3e30;
+}
+.chip-name {
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+.chip-size {
+  color: #667667;
+  font-size: 0.7rem;
+}
+.chip-remove-btn {
+  border: 0;
+  background: transparent;
+  color: #687969;
+  font-size: 0.85rem;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.chip-remove-btn:hover {
+  color: #a23828;
+}
+.composer-form {
+  width: 100%;
+}
+.composer-input-row {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid #cbd4c7;
+  border-radius: 8px;
+  padding: 10px 14px;
+  box-shadow: 0 2px 8px rgba(35, 48, 38, 0.04);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.composer-input-row:focus-within {
+  border-color: #334c3e;
+  box-shadow: 0 0 0 2px rgba(51, 76, 62, 0.15);
+}
+.composer-textarea {
+  width: 100%;
+  border: 0;
+  padding: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: #252e28;
+  resize: none;
+  outline: none;
+  background: transparent;
+  min-height: 38px;
+  max-height: 180px;
+}
+.composer-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #f2f5ef;
+}
+.composer-tool-btn {
+  font-size: 1.15rem;
+  padding: 6px;
+  color: #556758;
+  border-radius: 4px;
+}
+.composer-tool-btn:hover:not(:disabled) {
+  background: #f1f4ed;
+  color: #223225;
+}
+.send-btn {
+  min-height: 38px;
+  padding: 8px 18px;
+  font-size: 0.85rem;
+  margin-left: 6px;
+}
+.stop-btn {
+  min-height: 38px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  background: #a23828;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 4px;
+}
+.stop-btn:hover {
+  background: #872c1e;
+}
+.stop-square {
+  width: 9px;
+  height: 9px;
+  background: #ffffff;
+  border-radius: 1px;
+}
+
+/* Voice Recording Bar */
+.recording-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #b45835;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+.recording-pulse-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.recording-dot {
+  width: 10px;
+  height: 10px;
+  background: #c93b2b;
+  border-radius: 50%;
+  animation: pulse-animation 1s infinite;
+}
+.recording-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #252e28;
+}
+.recording-timer {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  color: #b45835;
+  font-weight: 700;
+}
+.recording-actions {
+  display: flex;
+  gap: 8px;
+}
+.cancel-record-btn {
+  color: #667169;
+}
+.done-record-btn {
+  background: #334c3e;
+}

@@ -420,6 +420,28 @@ export const handlers = [
     });
   }),
 
+  // Full original file (library preview). Multi-page sample PDF for pdf files.
+  http.get('*/api/files/:id/media', ({ params }) => {
+    const file = files.find((item) => item.id === params.id);
+    if (!file) return fail();
+    if (file.modality === 'pdf') {
+      return HttpResponse.json({
+        url: 'https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf',
+      });
+    }
+    return HttpResponse.json({
+      url: 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?w=1600',
+    });
+  }),
+  // Whole document a cited chunk belongs to.
+  http.get('*/api/chunks/:id/document', ({ params }) => {
+    const file = files.find((item) => item.previewChunkId === params.id) ?? files.find((f) => f.modality === 'pdf');
+    return HttpResponse.json({
+      url: 'https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf',
+      fileId: file?.id ?? '22222222-2222-4222-8222-222222222222',
+    });
+  }),
+
   // Chunk media URL endpoint (signed URL for piece or thumbnail)
   http.get('*/api/chunks/:id/media', ({ params, request }) => {
     const isThumb = new URL(request.url).searchParams.get('thumbnail') === 'true';

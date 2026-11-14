@@ -24,5 +24,17 @@ export function chunksRouter(pool: () => pg.Pool, secret: string, storage: () =>
       res.json({ url: await storage().signGet(key) });
     },
   );
+  /** Signed URL for the whole original file a chunk belongs to, plus its file id, so a cited page can open in the full document. */
+  router.get('/:id/document', validate({ params: z.object({ id: z.uuid() }) }), async (req, res) => {
+    const result = await pool().query(
+      `SELECT f.id, f.r2_key FROM chunks c
+         JOIN files f ON f.id = c.file_id AND f.user_id = c.user_id
+        WHERE c.id = $1 AND c.user_id = $2`,
+      [req.params.id, req.user!.id],
+    );
+    const row = result.rows[0];
+    if (!row?.r2_key) throw new HttpError(404, 'NOT_FOUND', 'Document not found');
+    res.json({ url: await storage().signGet(row.r2_key), fileId: row.id });
+  });
   return router;
 }

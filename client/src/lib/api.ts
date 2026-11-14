@@ -93,6 +93,11 @@ export const api = {
   conversation: (id: string) => request(`/conversations/${id}`, ConversationDetailResponseSchema),
   chunkMedia: (chunkId: string, thumbnail?: boolean) =>
     request(`/chunks/${chunkId}/media${thumbnail ? '?thumbnail=true' : ''}`, MediaResponseSchema),
+  /** Signed URL of the original uploaded file (whole PDF, full video, ...). */
+  fileMedia: (fileId: string) => request(`/files/${fileId}/media`, MediaResponseSchema),
+  /** Signed URL + file id of the whole original file a chunk belongs to. Use to open a citation inside the full document. */
+  chunkDocument: (chunkId: string) =>
+    request(`/chunks/${chunkId}/document`, MediaResponseSchema.extend({ fileId: z.string() })),
 };
 async function remove(path: string) {
   const headers = new Headers();
