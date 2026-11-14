@@ -2,7 +2,17 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { SseEventSchema } from '@app/shared';
 import { collect, providerContract } from './contract.js';
-import { capabilities, FakeProvider, getProvider, getProviderConfig, recordedSseFixture } from './index.js';
+import {
+  capabilities,
+  FakeProvider,
+  getProvider,
+  getDescribeProvider,
+  getProviderConfig,
+  recordedSseFixture,
+} from './index.js';
+import { loadConfig } from '../../lib/config.js';
+import { GeminiProvider } from './gemini.js';
+import { OpenAICompatibleProvider } from './openai.js';
 import type { FakeScript } from './index.js';
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures.json', import.meta.url), 'utf8')) as FakeScript;
@@ -68,5 +78,33 @@ describe('fake provider and factory', () => {
   });
   it('exports a valid shared SSE fixture', () => {
     for (const event of recordedSseFixture) expect(SseEventSchema.safeParse(event).success).toBe(true);
+  });
+  it('validates selected provider credentials independently', () => {
+    const base = {
+      DATABASE_URL: 'https://example.com',
+      JWT_SECRET: 'x'.repeat(32),
+      CORS_ORIGIN: 'https://example.com',
+      GEMINI_API_KEY: 'key',
+    };
+    expect(() =>
+      loadConfig({ ...base, LLM_PROVIDER: 'fake', DESCRIBE_PROVIDER: 'openrouter', DESCRIBE_MODEL: 'model' }),
+    ).toThrow('OPENROUTER_API_KEY');
+    expect(() =>
+      loadConfig({ ...base, LLM_PROVIDER: 'opencode', AGENT_MODEL: 'model', DESCRIBE_PROVIDER: 'fake' }),
+    ).toThrow('OPENCODE_API_KEY');
+    expect(
+      loadConfig({ ...base, LLM_PROVIDER: 'gemini', AGENT_MODEL: 'model', DESCRIBE_PROVIDER: 'fake' })
+        .LLM_PROVIDER,
+    ).toBe('gemini');
+    expect(() => loadConfig({ ...base, LLM_PROVIDER: 'unknown' })).toThrow('LLM_PROVIDER');
+  });
+  it('selects the describe provider independently', () => {
+    expect(getDescribeProvider()).toBeInstanceOf(FakeProvider);
+    expect(
+      getDescribeProvider({ LLM_PROVIDER: 'fake', DESCRIBE_PROVIDER: 'gemini', GEMINI_API_KEY: 'key' }),
+    ).toBeInstanceOf(GeminiProvider);
+    expect(getProvider({ LLM_PROVIDER: 'openrouter', OPENROUTER_API_KEY: 'key' })).toBeInstanceOf(
+      OpenAICompatibleProvider,
+    );
   });
 });
