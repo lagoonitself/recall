@@ -72,35 +72,6 @@ export const TOOLS: ToolDefinition[] = [
       },
     },
   },
-  {
-    name: 'list_documents',
-    description:
-      'List analysed documents (invoices, receipts, contracts, IDs, statements, claims, medical reports, ' +
-      'resumes…) with their type, extracted fields (dates, amounts, names), validation problems and review ' +
-      'status. Each document gets a source id you can cite. Use it for questions across many documents: ' +
-      'totals, due dates, expiries, which ones need review, or which ones conflict with photos, audio or video.',
-    parameters: {
-      type: 'object',
-      properties: {
-        doc_type: {
-          type: 'string',
-          enum: [
-            'invoice',
-            'receipt',
-            'contract',
-            'id_document',
-            'bank_statement',
-            'insurance_claim',
-            'medical_report',
-            'resume',
-            'other',
-          ],
-        },
-        needs_review: { type: 'boolean', description: 'Only documents flagged for human review.' },
-        collection_id: { type: 'string', description: 'Only this collection (uuid).' },
-      },
-    },
-  },
 ];
 
 export type PromptContext = {
@@ -131,7 +102,6 @@ export function systemPrompt(context: PromptContext): string {
     '## How to work',
     '1. For anything about the library, call search_library before answering. Use an attachment as the query when one is given; combine it with a text query when the user also asked something in words.',
     '2. Call open_sources on the most relevant results (up to 4 at a time) before relying on them. Search summaries are only hints.',
-    '   For questions about extracted document data across many files (amounts, dates, totals, which documents need review or conflict with other media), call list_documents first.',
     '3. If results are weak, search again with different words or types. You have at most 6 rounds of tool use.',
     '4. Then answer.',
     '',
