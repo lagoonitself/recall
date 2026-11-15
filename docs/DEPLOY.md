@@ -136,10 +136,6 @@ In the Render dashboard under **Environment**, set the following keys (all marke
 | `USER_QUOTA_MB` | `500` | Storage quota per user (MB) |
 | `UPLOADS_PER_DAY` | `100` | Upload limit per user per day |
 | `CHAT_PER_MIN` | `6` | Chat queries limit per user per minute |
-| `DOC_AI_PROVIDER` | `gemini` | Document intelligence models (D30); `fake` only for tests |
-| `DECISION_MODEL` | `gemini-decision-1` | Gemini Decisions API model |
-| `EXTRACT_MODEL` | `gemini-3.5-flash-lite` | Gemini model for document field extraction |
-| `DOC_AI_CONCURRENCY` | `2` | Concurrent document-intelligence requests |
 
 Once saved, Render will build the Docker image and deploy. Note your backend URL: `https://recall-server.onrender.com`.
 
